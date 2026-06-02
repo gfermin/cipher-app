@@ -1,0 +1,100 @@
+'use client'
+import { useEffect, useRef, useCallback } from 'react'
+import { getSupabaseClient } from '@/lib/supabase/client'
+import { useChatStore } from '@/stores/chatStore'
+import { useAuthStore } from '@/stores/authStore'
+import { getMessages, setTyping, clearTyping, vaultChatImages } from '@/services/messageService'
+import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
+import type { MessageWithSender } from '@/types/app'
+
+export function useMessages(chatId: string | null) {
+  const { user } = useAuthStore()
+  const { messages, addMessage, updateMessage, setTypingUsers, setMessages } = useChatStore()
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const chatMessages = chatId ? (messages[chatId] ?? []) : []
+
+  useEffect(() => {
+    if (!chatId) return
+    let mounted = true
+
+    getMessages(chatId).then((msgs) => {
+      if (mounted) setMessages(chatId, msgs)
+    })
+
+    return () => { mounted = false }
+  }, [chatId, setMessages])
+
+  // Vault images on unmount
+  useEffect(() => {
+    if (!chatId) return
+    return () => {
+      vaultChatImages(chatId).catch(() => {})
+    }
+  }, [chatId])
+
+  // Realtime messages
+  useEffect(() => {
+    if (!chatId) return
+    const supabase = getSupabaseClient()
+
+    const channel = supabase
+      .channel(`messages:${chatId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        async (payload) => {
+          const { data: sender } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', payload.new.sender_id)
+            .single()
+          if (sender) {
+            addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          updateMessage(chatId, payload.new.id, payload.new as Partial<MessageWithSender>)
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [chatId, addMessage, updateMessage])
+
+  // Realtime typing
+  useEffect(() => {
+    if (!chatId || !user) return
+    const supabase = getSupabaseClient()
+
+    const channel = supabase
+      .channel(`typing:${chatId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'typing_indicators', filter: `chat_id=eq.${chatId}` },
+        async () => {
+          const { data } = await supabase
+            .from('typing_indicators')
+            .select('user_id')
+            .eq('chat_id', chatId)
+            .neq('user_id', user.id)
+          setTypingUsers(chatId, (data ?? []).map((t) => (t as { user_id: string }).user_id))
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [chatId, user, setTypingUsers])
+
+  const handleTyping = useCallback(() => {
+    if (!chatId || !user) return
+    setTyping(chatId, user.id)
+    if (typingTimer.current) clearTimeout(typingTimer.current)
+    typingTimer.current = setTimeout(() => clearTyping(chatId, user.id), TYPING_DEBOUNCE_MS)
+  }, [chatId, user])
+
+  return { messages: chatMessages, handleTyping }
+}
