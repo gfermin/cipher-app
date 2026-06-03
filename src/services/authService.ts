@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { buildEmailFromUsername } from '@/lib/utils'
+import { ensureCodeExists } from '@/services/contactCodeService'
 import type { AuthUser, Profile } from '@/types/app'
 
 export async function signIn(username: string, password: string): Promise<AuthUser> {
@@ -12,6 +13,10 @@ export async function signIn(username: string, password: string): Promise<AuthUs
 
   const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single()
   if (!profile) throw new Error('Profile not found')
+
+  // Non-blocking: ensure the contact code exists (generates one for new accounts,
+  // or recovers if the initial generation failed after a previous sign-up).
+  ensureCodeExists().catch(() => {})
 
   return { id: data.user.id, email: data.user.email!, profile: profile as Profile }
 }
@@ -32,14 +37,21 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getSession(): Promise<AuthUser | null> {
-  const sb = getSupabaseClient()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return null
+  try {
+    const sb = getSupabaseClient()
+    // getSession() reads the local cookie without a network round-trip.
+    // May still trigger a background refresh; errors are caught below.
+    const { data: { session }, error } = await sb.auth.getSession()
+    if (error || !session?.user) return null
 
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single()
-  if (!profile) return null
+    const user = session.user
+    const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single()
+    if (!profile) return null
 
-  return { id: user.id, email: user.email!, profile: profile as Profile }
+    return { id: user.id, email: user.email!, profile: profile as Profile }
+  } catch {
+    return null
+  }
 }
 
 export async function updateProfile(updates: { display_name?: string | null; app_theme?: string }): Promise<void> {

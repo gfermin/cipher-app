@@ -12,7 +12,7 @@ import type { Profile } from '@/types/app'
 export function ChatList() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const { chats, setChats, activeChatId } = useChatStore()
+  const { chats, setChats, activeChatId, newChatId } = useChatStore()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
@@ -129,6 +129,7 @@ export function ChatList() {
               chat={chat}
               isActive={activeChatId === chat.id}
               currentUserId={user?.id ?? ''}
+              isNew={chat.id === newChatId}
               onClick={() => router.push(`/chats/${chat.id}`)}
             />
           ))
