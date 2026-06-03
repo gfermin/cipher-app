@@ -7,10 +7,11 @@ interface Props {
   chat: ChatWithParticipants
   isActive: boolean
   currentUserId: string
+  isNew?: boolean
   onClick: () => void
 }
 
-export function ChatItem({ chat, isActive, currentUserId, onClick }: Props) {
+export function ChatItem({ chat, isActive, currentUserId, isNew, onClick }: Props) {
   const { otherUser, lastMessage, unreadCount } = chat
 
   function renderPreview(): string {
@@ -26,7 +27,7 @@ export function ChatItem({ chat, isActive, currentUserId, onClick }: Props) {
   const privateAvatar = chat.myPreferences?.private_avatar
 
   return (
-    <div className={`chat-item ${isActive ? 'active' : ''}`} onClick={onClick}>
+    <div className={`chat-item${isActive ? ' active' : ''}${isNew ? ' chat-item-new' : ''}`} onClick={onClick}>
       <Avatar
         src={privateAvatar ?? otherUser.public_avatar}
         name={otherUser.display_name ?? otherUser.username}
