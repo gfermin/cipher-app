@@ -37,12 +37,16 @@ export const useChatStore = create<ChatState>((set) => ({
     set((s) => ({ messages: { ...s.messages, [chatId]: messages } })),
 
   addMessage: (chatId, message) =>
-    set((s) => ({
-      messages: {
-        ...s.messages,
-        [chatId]: [...(s.messages[chatId] ?? []), message],
-      },
-    })),
+    set((s) => {
+      const existing = s.messages[chatId] ?? []
+      if (existing.some((m) => m.id === message.id)) return s
+      return {
+        messages: {
+          ...s.messages,
+          [chatId]: [...existing, message],
+        },
+      }
+    }),
 
   updateMessage: (chatId, messageId, updates) =>
     set((s) => ({

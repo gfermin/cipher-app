@@ -43,14 +43,22 @@ export function useMessages(chatId: string | null) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         async (payload) => {
-          const { data: sender } = await supabase
+          const { data: senderData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', payload.new.sender_id)
             .single()
-          if (sender) {
-            addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
+          // Always add the message — use a minimal fallback if the profile fetch fails
+          const sender = senderData ?? {
+            id: payload.new.sender_id,
+            username: '',
+            display_name: null,
+            public_avatar: null,
+            app_theme: 'dark',
+            created_at: '',
+            updated_at: '',
           }
+          addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
         }
       )
       .on(
@@ -60,10 +68,19 @@ export function useMessages(chatId: string | null) {
           updateMessage(chatId, payload.new.id, payload.new as Partial<MessageWithSender>)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        // On SUBSCRIBED, re-fetch to catch any messages sent during connection setup
+        if (status === 'SUBSCRIBED') {
+          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+        }
+        // On error, fall back to polling once to ensure consistency
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+        }
+      })
 
     return () => { supabase.removeChannel(channel) }
-  }, [chatId, addMessage, updateMessage])
+  }, [chatId, addMessage, updateMessage, setMessages])
 
   // Realtime typing
   useEffect(() => {

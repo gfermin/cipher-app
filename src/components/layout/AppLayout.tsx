@@ -39,9 +39,14 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login')
+      // Hard navigation resets the Zustand store on the next load, which prevents
+      // the infinite redirect loop where client auth state (user=null, isLoading=false)
+      // is out of sync with valid server-side session cookies. With router.replace the
+      // store is NOT reset on client-side navigation, so AppLayout immediately
+      // redirects again when middleware bounces the request back to /chats.
+      window.location.replace('/login')
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading])
 
   useEffect(() => {
     if (initialChatId) {
@@ -54,15 +59,15 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
-  if (isLoading) {
+  // Show loading while auth resolves OR while the unauthenticated redirect is
+  // in-flight. Never return null — a blank DOM is the bug we're fixing.
+  if (isLoading || !user) {
     return (
       <div className="app-root" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--text-3)', fontSize: 'var(--text-sm)' }}>Loading…</div>
       </div>
     )
   }
-
-  if (!user) return null
 
   const activeChat = activeChatId ? chats.find((c) => c.id === activeChatId) : null
   const pendingCount = pendingRequests.length
