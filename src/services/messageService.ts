@@ -14,14 +14,28 @@ async function enrichMessage(msg: RawMsg): Promise<MessageWithSender> {
   return { ...msg, sender: sender as Profile }
 }
 
-export async function getMessages(chatId: string, page = 0): Promise<MessageWithSender[]> {
+// Returns the newest 40 messages for the initial load, ordered oldest-first for display.
+export async function getMessages(chatId: string): Promise<MessageWithSender[]> {
   const sb = getSupabaseClient()
-  const from = page * 40
   const { data, error } = await sb
     .from('messages').select('*').eq('chat_id', chatId)
-    .order('created_at', { ascending: true }).range(from, from + 39)
+    .order('created_at', { ascending: false }).limit(40)
   if (error) throw new Error(error.message)
-  return Promise.all(((data ?? []) as RawMsg[]).map(enrichMessage))
+  const msgs = ((data ?? []) as RawMsg[]).reverse()
+  return Promise.all(msgs.map(enrichMessage))
+}
+
+// Cursor-based fetch for "load more" — returns up to 40 messages older than beforeTimestamp,
+// ordered oldest-first for prepending to the top of the message list.
+export async function getMessagesBefore(chatId: string, beforeTimestamp: string): Promise<MessageWithSender[]> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb
+    .from('messages').select('*').eq('chat_id', chatId)
+    .lt('created_at', beforeTimestamp)
+    .order('created_at', { ascending: false }).limit(40)
+  if (error) throw new Error(error.message)
+  const msgs = ((data ?? []) as RawMsg[]).reverse()
+  return Promise.all(msgs.map(enrichMessage))
 }
 
 export async function sendTextMessage(chatId: string, senderId: string, content: string): Promise<MessageWithSender> {

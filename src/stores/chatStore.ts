@@ -13,6 +13,7 @@ interface ChatState {
   setActiveChat: (chatId: string | null) => void
   setNewChatId: (chatId: string | null) => void
   setMessages: (chatId: string, messages: MessageWithSender[]) => void
+  prependMessages: (chatId: string, messages: MessageWithSender[]) => void
   addMessage: (chatId: string, message: MessageWithSender) => void
   updateMessage: (chatId: string, messageId: string, updates: Partial<MessageWithSender>) => void
   removeMessage: (chatId: string, messageId: string) => void
@@ -35,6 +36,14 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setMessages: (chatId, messages) =>
     set((s) => ({ messages: { ...s.messages, [chatId]: messages } })),
+
+  prependMessages: (chatId, messages) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [chatId]: [...messages, ...(s.messages[chatId] ?? [])],
+      },
+    })),
 
   addMessage: (chatId, message) =>
     set((s) => {

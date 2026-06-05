@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -26,9 +26,11 @@ export function ChatPanel({ chatId, onBack }: Props) {
   const { user } = useAuthStore()
   const { chats, typingUsers, updateMessage } = useChatStore()
   const { setMobileChatOpen } = useUIStore()
-  const { messages, handleTyping } = useMessages(chatId)
+  const { messages, handleTyping, loadMoreMessages, hasMore } = useMessages(chatId)
   const { isUnlocked, tryUnlockWithInput, lockVault } = useVault()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesAreaRef = useRef<HTMLDivElement>(null)
+  const prevScrollHeightRef = useRef(0)
   const [showVaultTransition, setShowVaultTransition] = useState(false)
   const [showVault, setShowVault] = useState(false)
   const [showVaultSetup, setShowVaultSetup] = useState(false)
@@ -38,9 +40,19 @@ export function ChatPanel({ chatId, onBack }: Props) {
   const chat = chats.find((c) => c.id === chatId)
   const typingList = typingUsers[chatId] ?? []
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages (skip when prepending old messages)
   useEffect(() => {
+    if (prevScrollHeightRef.current > 0) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  // Restore scroll position after older messages are prepended
+  useLayoutEffect(() => {
+    const area = messagesAreaRef.current
+    if (!area || prevScrollHeightRef.current === 0) return
+    const diff = area.scrollHeight - prevScrollHeightRef.current
+    if (diff > 0) area.scrollTop += diff
+    prevScrollHeightRef.current = 0
   }, [messages.length])
 
   // Mark messages as read
@@ -48,6 +60,15 @@ export function ChatPanel({ chatId, onBack }: Props) {
     if (!user || !chatId) return
     markMessagesRead(chatId, user.id).catch(() => {})
   }, [chatId, user, messages.length])
+
+  const handleScroll = useCallback(() => {
+    const area = messagesAreaRef.current
+    if (!area || !hasMore) return
+    if (area.scrollTop < 80) {
+      prevScrollHeightRef.current = area.scrollHeight
+      loadMoreMessages()
+    }
+  }, [hasMore, loadMoreMessages])
 
   const handleVaultTrigger = useCallback(
     async (password: string): Promise<boolean> => {
@@ -103,7 +124,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
         onBack={() => { setMobileChatOpen(false); onBack?.() }}
       />
 
-      <div className="messages-area">
+      <div className="messages-area" ref={messagesAreaRef} onScroll={handleScroll}>
         {messages.map((msg) => (
           <MessageBubble
             key={msg.id}

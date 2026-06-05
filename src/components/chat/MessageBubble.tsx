@@ -11,6 +11,15 @@ interface Props {
   onDelete?: (id: string) => void
 }
 
+function ReadTick({ readBy }: { readBy: string[] }) {
+  const isRead = readBy.length > 0
+  return (
+    <span className={`bubble-read${isRead ? ' read' : ''}`}>
+      {isRead ? '✓✓' : '✓'}
+    </span>
+  )
+}
+
 export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props) {
   const { setImageViewer } = useUIStore()
 
@@ -45,6 +54,7 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
           ) : null}
           <div className="bubble-meta">
             <span className="bubble-time">{formatMessageTime(message.created_at)}</span>
+            {isOwn && <ReadTick readBy={message.read_by} />}
           </div>
         </div>
       </div>
@@ -62,11 +72,7 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
         <span className="bubble-text">{message.content}</span>
         <div className="bubble-meta">
           <span className="bubble-time">{formatMessageTime(message.created_at)}</span>
-          {isOwn && (
-            <span className={`bubble-read ${message.read_by.length > 1 ? 'read' : ''}`}>
-              ✓✓
-            </span>
-          )}
+          {isOwn && <ReadTick readBy={message.read_by} />}
         </div>
       </div>
     </div>
