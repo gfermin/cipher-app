@@ -94,3 +94,23 @@ export async function markMessagesRead(chatId: string, _userId: string): Promise
   const { error } = await sb.rpc('mark_messages_read', { p_chat_id: chatId })
   if (error) throw new Error(error.message)
 }
+
+export async function setChatBackground(chatId: string, url: string | null): Promise<void> {
+  const sb = getSupabaseClient()
+  const { error } = await sb
+    .from('chats')
+    .update({ background_url: url, updated_at: new Date().toISOString() })
+    .eq('id', chatId)
+  if (error) throw new Error(error.message)
+}
+
+export async function setGlobalBackground(url: string | null): Promise<void> {
+  const sb = getSupabaseClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await sb
+    .from('profiles')
+    .update({ global_background_url: url, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+  if (error) throw new Error(error.message)
+}

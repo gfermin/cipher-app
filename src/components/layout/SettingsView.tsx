@@ -4,8 +4,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useTheme } from '@/hooks/useTheme'
 import { updateProfile, signOut, deleteAccount } from '@/services/authService'
+import { setGlobalBackground } from '@/services/chatService'
 import { AvatarUpload } from '@/components/settings/AvatarUpload'
 import { ThemeSelector } from '@/components/settings/ThemeSelector'
+import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
 import { ContactCodePanel } from '@/components/contacts/ContactCodePanel'
 import { DeleteModal } from '@/components/ui/DeleteModal'
 import { useRouter } from 'next/navigation'
@@ -59,6 +61,22 @@ export function SettingsView({ onBack }: Props) {
       setDeleting(false)
       setShowDeleteConfirm(false)
     }
+  }
+
+  async function handleSaveGlobalBackground(url: string) {
+    await setGlobalBackground(url)
+    if (user) {
+      setUser({ ...user, profile: { ...user.profile, global_background_url: url } })
+    }
+    showToast('Global background updated', 'success')
+  }
+
+  async function handleRemoveGlobalBackground() {
+    await setGlobalBackground(null)
+    if (user) {
+      setUser({ ...user, profile: { ...user.profile, global_background_url: null } })
+    }
+    showToast('Background removed', 'success')
   }
 
   return (
@@ -162,6 +180,24 @@ export function SettingsView({ onBack }: Props) {
               Choose your theme. Each family has a dark and light variant.
             </div>
             <ThemeSelector />
+
+            <div style={{ marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-2)', marginBottom: 12 }}>
+                Global Background
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-3)', marginBottom: 14, lineHeight: 1.5 }}>
+                Appears behind all chats. Per-chat backgrounds override this.
+              </div>
+              {user && (
+                <BackgroundPicker
+                  label="All chats"
+                  currentUrl={user.profile.global_background_url ?? null}
+                  userId={user.id}
+                  onSave={handleSaveGlobalBackground}
+                  onRemove={handleRemoveGlobalBackground}
+                />
+              )}
+            </div>
           </div>
         )}
 

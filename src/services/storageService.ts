@@ -24,6 +24,16 @@ export async function uploadAvatar(
   return mediaProvider.uploadImage(file, folder, String(Date.now()))
 }
 
+export async function uploadBackground(
+  file: File,
+  userId: string,
+  chatId?: string
+): Promise<{ url: string; path: string }> {
+  const scope = chatId ? `chat/${chatId}` : `global/${userId}`
+  const folder = `${CLOUDINARY_FOLDERS.BACKGROUNDS}/${scope}`
+  return mediaProvider.uploadImage(file, folder, String(Date.now()))
+}
+
 export async function deleteFile(_bucket: string, path: string): Promise<void> {
   return mediaProvider.deleteImage(path)
 }

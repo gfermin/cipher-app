@@ -33,6 +33,7 @@ export const CHAT_THEMES = [
 export const CLOUDINARY_FOLDERS = {
   AVATARS: 'cipher/avatars',
   CHAT_IMAGES: 'cipher/chat-images',
+  BACKGROUNDS: 'cipher/backgrounds',
 } as const
 
 export const TYPING_DEBOUNCE_MS = 2000

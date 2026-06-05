@@ -17,6 +17,7 @@ interface ChatState {
   removeMessage: (chatId: string, messageId: string) => void
   setTypingUsers: (chatId: string, userIds: string[]) => void
   updateChatTheme: (chatId: string, theme: string | null) => void
+  updateChatBackground: (chatId: string, url: string | null) => void
   updateLastMessage: (chatId: string, message: MessageWithSender) => void
   removeChat: (chatId: string) => void
 }
@@ -77,6 +78,11 @@ export const useChatStore = create<ChatState>((set) => ({
   updateChatTheme: (chatId, theme) =>
     set((s) => ({
       chats: s.chats.map((c) => (c.id === chatId ? { ...c, custom_theme: theme } : c)),
+    })),
+
+  updateChatBackground: (chatId, url) =>
+    set((s) => ({
+      chats: s.chats.map((c) => (c.id === chatId ? { ...c, background_url: url } : c)),
     })),
 
   updateLastMessage: (chatId, message) =>

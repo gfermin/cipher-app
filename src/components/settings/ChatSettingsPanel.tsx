@@ -3,10 +3,11 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { DeleteModal } from '@/components/ui/DeleteModal'
+import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { deleteChat, updateChatTheme } from '@/services/chatService'
+import { deleteChat, updateChatTheme, setChatBackground } from '@/services/chatService'
 import { uploadAvatar } from '@/services/storageService'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
@@ -25,7 +26,7 @@ export function ChatSettingsPanel({ chat }: Props) {
   const router = useRouter()
   const { user } = useAuthStore()
   const { chatSettingsOpen, setChatSettings, showToast } = useUIStore()
-  const { updateChatTheme: updateThemeInStore, removeChat } = useChatStore()
+  const { updateChatTheme: updateThemeInStore, updateChatBackground, removeChat } = useChatStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
@@ -65,6 +66,18 @@ export function ChatSettingsPanel({ chat }: Props) {
     } catch {
       showToast('Failed to upload avatar', 'error')
     }
+  }
+
+  async function handleSaveBackground(url: string) {
+    await setChatBackground(chat.id, url)
+    updateChatBackground(chat.id, url)
+    showToast('Background updated', 'success')
+  }
+
+  async function handleRemoveBackground() {
+    await setChatBackground(chat.id, null)
+    updateChatBackground(chat.id, null)
+    showToast('Background removed', 'success')
   }
 
   const currentTheme = chat.custom_theme ?? 'default'
@@ -141,6 +154,22 @@ export function ChatSettingsPanel({ chat }: Props) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Background image */}
+        <div className="cs-section">
+          <div className="cs-section-title">Chat Background</div>
+          {user && (
+            <BackgroundPicker
+              label="This conversation"
+              description="Overrides your global background for this chat only"
+              currentUrl={chat.background_url ?? null}
+              userId={user.id}
+              chatId={chat.id}
+              onSave={handleSaveBackground}
+              onRemove={handleRemoveBackground}
+            />
+          )}
         </div>
 
         {/* Delete */}

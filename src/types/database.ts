@@ -98,6 +98,7 @@ export type Database = {
       }
       chats: {
         Row: {
+          background_url: string | null
           connection_id: string | null
           created_at: string
           custom_theme: string | null
@@ -106,6 +107,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          background_url?: string | null
           connection_id?: string | null
           created_at?: string
           custom_theme?: string | null
@@ -114,6 +116,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          background_url?: string | null
           connection_id?: string | null
           created_at?: string
           custom_theme?: string | null
@@ -260,6 +263,7 @@ export type Database = {
           app_theme: string
           created_at: string
           display_name: string | null
+          global_background_url: string | null
           id: string
           public_avatar: string | null
           rotation_offset: number
@@ -270,6 +274,7 @@ export type Database = {
           app_theme?: string
           created_at?: string
           display_name?: string | null
+          global_background_url?: string | null
           id: string
           public_avatar?: string | null
           rotation_offset?: number
@@ -280,6 +285,7 @@ export type Database = {
           app_theme?: string
           created_at?: string
           display_name?: string | null
+          global_background_url?: string | null
           id?: string
           public_avatar?: string | null
           rotation_offset?: number

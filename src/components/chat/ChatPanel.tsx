@@ -109,6 +109,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
   }
 
   const chatTheme = chat?.custom_theme
+  const background = chat?.background_url ?? user?.profile.global_background_url ?? null
 
   if (!chat) {
     return (
@@ -119,41 +120,53 @@ export function ChatPanel({ chatId, onBack }: Props) {
   }
 
   return (
-    <div className={`chat-panel ${chatTheme ? `chat-theme-${chatTheme}` : ''}`}>
-      <ChatHeader
-        chat={chat}
-        onBack={() => { setMobileChatOpen(false); onBack?.() }}
-      />
+    <div
+      className={`chat-panel ${chatTheme ? `chat-theme-${chatTheme}` : ''}`}
+      style={background ? { background: 'transparent' } : undefined}
+    >
+      {background && (
+        <div className="chat-bg-wrap" aria-hidden="true">
+          <div className="chat-bg-layer" style={{ backgroundImage: `url(${background})` }} />
+          <div className="chat-scrim" />
+        </div>
+      )}
 
-      <div
-        className="messages-area"
-        ref={messagesAreaRef}
-        onScroll={handleScroll}
-        role="list"
-        aria-label="Messages"
-        aria-live="polite"
-        aria-relevant="additions"
-      >
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            isOwn={msg.sender_id === user?.id}
-            vaultUnlocked={isUnlocked}
-            onDelete={handleDeleteMessage}
-          />
-        ))}
+      <div className="chat-body">
+        <ChatHeader
+          chat={chat}
+          onBack={() => { setMobileChatOpen(false); onBack?.() }}
+        />
 
-        {typingList.length > 0 && <TypingIndicator />}
-        <div ref={messagesEndRef} />
+        <div
+          className="messages-area"
+          ref={messagesAreaRef}
+          onScroll={handleScroll}
+          role="list"
+          aria-label="Messages"
+          aria-live="polite"
+          aria-relevant="additions"
+        >
+          {messages.map((msg) => (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              isOwn={msg.sender_id === user?.id}
+              vaultUnlocked={isUnlocked}
+              onDelete={handleDeleteMessage}
+            />
+          ))}
+
+          {typingList.length > 0 && <TypingIndicator />}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <MessageInput
+          chatId={chatId}
+          onTyping={handleTyping}
+          onVaultTrigger={handleVaultTrigger}
+          onVaultSetupTrigger={() => setShowVaultSetup(true)}
+        />
       </div>
-
-      <MessageInput
-        chatId={chatId}
-        onTyping={handleTyping}
-        onVaultTrigger={handleVaultTrigger}
-        onVaultSetupTrigger={() => setShowVaultSetup(true)}
-      />
 
       {showVaultTransition && (
         <VaultTransitionOverlay onComplete={handleVaultTransitionComplete} />
