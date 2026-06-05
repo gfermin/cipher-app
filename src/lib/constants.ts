@@ -1,5 +1,6 @@
 export const VAULT_PASSWORD_LENGTH = 6
 export const VAULT_PASSWORD_PATTERN = /^\d{6}$/
+export const VAULT_SETUP_COMMAND = 'secret_vault'
 
 export const THEMES = [
   { id: 'dark', label: 'Dark', family: 'Default', variant: 'dark' },
@@ -29,9 +30,9 @@ export const CHAT_THEMES = [
   { id: 'rose', label: 'Sexy Rose' },
 ] as const
 
-export const SUPABASE_STORAGE = {
-  AVATARS: 'avatars',
-  CHAT_IMAGES: 'chat-images',
+export const CLOUDINARY_FOLDERS = {
+  AVATARS: 'cipher/avatars',
+  CHAT_IMAGES: 'cipher/chat-images',
 } as const
 
 export const TYPING_DEBOUNCE_MS = 2000

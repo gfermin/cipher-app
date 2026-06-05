@@ -5,31 +5,48 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useContactStore } from '@/stores/contactStore'
+import { useContactRequests } from '@/hooks/useContactRequests'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { ChatPanel } from '@/components/chat/ChatPanel'
 import { ChatSettingsPanel } from '@/components/settings/ChatSettingsPanel'
 import { SettingsView } from './SettingsView'
+import { ContactsView } from '@/components/contacts/ContactsView'
 import { ToastProvider } from '@/components/ui/ToastProvider'
+
+type Tab = 'chats' | 'contacts' | 'settings'
 
 interface Props {
   initialChatId?: string
   showSettings?: boolean
+  showContacts?: boolean
 }
 
-export function AppLayout({ initialChatId, showSettings }: Props) {
+export function AppLayout({ initialChatId, showSettings, showContacts }: Props) {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
   const { chats, activeChatId, setActiveChat } = useChatStore()
   const { isMobileChatOpen, setMobileChatOpen } = useUIStore()
-  const [activeTab, setActiveTab] = useState<'chats' | 'settings'>(showSettings ? 'settings' : 'chats')
+  const { pendingRequests } = useContactStore()
+
+  const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
+
+  // Keep subscriptions active for the whole session
+  useContactRequests()
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login')
+      // Hard navigation resets the Zustand store on the next load, which prevents
+      // the infinite redirect loop where client auth state (user=null, isLoading=false)
+      // is out of sync with valid server-side session cookies. With router.replace the
+      // store is NOT reset on client-side navigation, so AppLayout immediately
+      // redirects again when middleware bounces the request back to /chats.
+      window.location.replace('/login')
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading])
 
   useEffect(() => {
     if (initialChatId) {
@@ -42,7 +59,9 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
-  if (isLoading) {
+  // Show loading while auth resolves OR while the unauthenticated redirect is
+  // in-flight. Never return null — a blank DOM is the bug we're fixing.
+  if (isLoading || !user) {
     return (
       <div className="app-root" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--text-3)', fontSize: 'var(--text-sm)' }}>Loading…</div>
@@ -50,14 +69,15 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
     )
   }
 
-  if (!user) return null
-
   const activeChat = activeChatId ? chats.find((c) => c.id === activeChatId) : null
+  const pendingCount = pendingRequests.length
 
-  function handleTabChange(tab: 'chats' | 'settings') {
+  function handleTabChange(tab: Tab) {
     setActiveTab(tab)
     if (tab === 'chats') {
       router.push('/chats')
+    } else if (tab === 'contacts') {
+      router.push('/contacts')
     } else {
       router.push('/settings')
     }
@@ -79,11 +99,15 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
     <div className="app-root">
       <Sidebar
         hidden={isMobileChatOpen}
+        pendingCount={pendingCount}
         onSettingsClick={() => handleTabChange('settings')}
+        onContactsClick={() => handleTabChange('contacts')}
       />
 
       {activeTab === 'settings' ? (
         <SettingsView onBack={() => handleTabChange('chats')} />
+      ) : activeTab === 'contacts' ? (
+        <ContactsView onBack={() => handleTabChange('chats')} />
       ) : activeChatId ? (
         <>
           <ChatPanel chatId={activeChatId} onBack={handleBack} />
@@ -98,7 +122,7 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
         </div>
       )}
 
-      <MobileNav activeTab={activeTab} onTabChange={handleTabChange} />
+      <MobileNav activeTab={activeTab} pendingCount={pendingCount} onTabChange={handleTabChange} />
       <ToastProvider />
     </div>
   )

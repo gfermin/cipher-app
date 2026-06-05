@@ -4,12 +4,13 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { getMessages, setTyping, clearTyping, vaultChatImages } from '@/services/messageService'
+import { useUIStore } from '@/stores/uiStore'
 import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
 import type { MessageWithSender } from '@/types/app'
 
 export function useMessages(chatId: string | null) {
   const { user } = useAuthStore()
-  const { messages, addMessage, updateMessage, setTypingUsers, setMessages } = useChatStore()
+  const { messages, addMessage, updateMessage, setTypingUsers, setMessages, removeMessage } = useChatStore()
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const chatMessages = chatId ? (messages[chatId] ?? []) : []
 
@@ -28,7 +29,9 @@ export function useMessages(chatId: string | null) {
   useEffect(() => {
     if (!chatId) return
     return () => {
-      vaultChatImages(chatId).catch(() => {})
+      vaultChatImages(chatId).then((count) => {
+        if (count > 0) useUIStore.getState().showToast('Images vaulted', 'success')
+      }).catch(() => {})
     }
   }, [chatId])
 
@@ -43,14 +46,22 @@ export function useMessages(chatId: string | null) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         async (payload) => {
-          const { data: sender } = await supabase
+          const { data: senderData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', payload.new.sender_id)
             .single()
-          if (sender) {
-            addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
+          // Always add the message — use a minimal fallback if the profile fetch fails
+          const sender = senderData ?? {
+            id: payload.new.sender_id,
+            username: '',
+            display_name: null,
+            public_avatar: null,
+            app_theme: 'dark',
+            created_at: '',
+            updated_at: '',
           }
+          addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
         }
       )
       .on(
@@ -60,10 +71,26 @@ export function useMessages(chatId: string | null) {
           updateMessage(chatId, payload.new.id, payload.new as Partial<MessageWithSender>)
         }
       )
-      .subscribe()
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          removeMessage(chatId, (payload.old as { id: string }).id)
+        }
+      )
+      .subscribe((status) => {
+        // On SUBSCRIBED, re-fetch to catch any messages sent during connection setup
+        if (status === 'SUBSCRIBED') {
+          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+        }
+        // On error, fall back to polling once to ensure consistency
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+        }
+      })
 
     return () => { supabase.removeChannel(channel) }
-  }, [chatId, addMessage, updateMessage])
+  }, [chatId, addMessage, updateMessage, setMessages, removeMessage])
 
   // Realtime typing
   useEffect(() => {

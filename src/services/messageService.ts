@@ -58,9 +58,12 @@ export async function getVaultedMessages(chatId: string): Promise<MessageWithSen
   return Promise.all(((data ?? []) as RawMsg[]).map(enrichMessage))
 }
 
-export async function vaultChatImages(chatId: string): Promise<void> {
+// Returns the count of images newly vaulted (0 if none). Used by
+// Phase 5 to conditionally show the "Images vaulted" toast.
+export async function vaultChatImages(chatId: string): Promise<number> {
   const sb = getSupabaseClient()
-  await sb.rpc('vault_chat_images' as never, { p_chat_id: chatId } as never)
+  const { data } = await sb.rpc('vault_chat_images' as never, { p_chat_id: chatId } as never)
+  return typeof data === 'number' ? data : 0
 }
 
 export async function setTyping(chatId: string, userId: string): Promise<void> {

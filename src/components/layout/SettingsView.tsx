@@ -6,11 +6,12 @@ import { useTheme } from '@/hooks/useTheme'
 import { updateProfile, signOut } from '@/services/authService'
 import { AvatarUpload } from '@/components/settings/AvatarUpload'
 import { ThemeSelector } from '@/components/settings/ThemeSelector'
+import { ContactCodePanel } from '@/components/contacts/ContactCodePanel'
 import { useRouter } from 'next/navigation'
 
 interface Props { onBack?: () => void }
 
-const TABS = ['Profile', 'Appearance', 'About'] as const
+const TABS = ['Profile', 'Appearance', 'Contact Code', 'About'] as const
 type Tab = (typeof TABS)[number]
 
 export function SettingsView({ onBack }: Props) {
@@ -131,6 +132,15 @@ export function SettingsView({ onBack }: Props) {
               Choose your theme. Each family has a dark and light variant.
             </div>
             <ThemeSelector />
+          </div>
+        )}
+
+        {tab === 'Contact Code' && (
+          <div className="settings-section">
+            <div style={{ marginBottom: 16, fontSize: 'var(--text-sm)', color: 'var(--text-2)', lineHeight: 1.6 }}>
+              Share this code with someone to let them send you a contact request. It refreshes daily — no action needed.
+            </div>
+            <ContactCodePanel />
           </div>
         )}
 

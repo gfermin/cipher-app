@@ -11,7 +11,7 @@ import { setVaultPassword } from '@/services/vaultService'
 import { uploadAvatar } from '@/services/storageService'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
-import { CHAT_THEMES, SUPABASE_STORAGE } from '@/lib/constants'
+import { CHAT_THEMES } from '@/lib/constants'
 
 const CHAT_THEME_COLORS: Record<string, string> = {
   default: 'linear-gradient(135deg, var(--bubble-out-from), var(--bubble-out-to))',
