@@ -27,17 +27,12 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
   }
 
   if (message.type === 'image') {
-    const isVaulted = message.is_vaulted && !vaultUnlocked
+    if (message.is_vaulted && !vaultUnlocked) return null
 
     return (
       <div className={`message-wrap ${isOwn ? 'outgoing' : ''}`}>
         <div className={`bubble bubble-image ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
-          {isVaulted ? (
-            <div className="bubble-vault">
-              <span>🔒</span>
-              <span>Photo in vault</span>
-            </div>
-          ) : message.image_url ? (
+          {message.image_url ? (
             <div style={{ cursor: 'pointer' }} onClick={() => setImageViewer(message.image_url!)}>
               <Image
                 src={message.image_url}

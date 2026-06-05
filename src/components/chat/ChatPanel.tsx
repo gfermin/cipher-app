@@ -13,6 +13,7 @@ import { MessageInput } from './MessageInput'
 import { TypingIndicator } from './TypingIndicator'
 import { VaultTransitionOverlay } from '@/components/vault/VaultTransitionOverlay'
 import { VaultGallery } from '@/components/vault/VaultGallery'
+import { VaultSetupModal } from '@/components/vault/VaultSetupModal'
 import { ImageViewer } from './ImageViewer'
 import { DeleteModal } from '@/components/ui/DeleteModal'
 
@@ -30,6 +31,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showVaultTransition, setShowVaultTransition] = useState(false)
   const [showVault, setShowVault] = useState(false)
+  const [showVaultSetup, setShowVaultSetup] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -120,6 +122,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
         chatId={chatId}
         onTyping={handleTyping}
         onVaultTrigger={handleVaultTrigger}
+        onVaultSetupTrigger={() => setShowVaultSetup(true)}
       />
 
       {showVaultTransition && (
@@ -131,6 +134,10 @@ export function ChatPanel({ chatId, onBack }: Props) {
       )}
 
       <ImageViewer />
+
+      {showVaultSetup && (
+        <VaultSetupModal chatId={chatId} onClose={() => setShowVaultSetup(false)} />
+      )}
 
       {deleteTarget && (
         <DeleteModal
