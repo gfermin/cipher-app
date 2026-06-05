@@ -4,12 +4,13 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { getMessages, setTyping, clearTyping, vaultChatImages } from '@/services/messageService'
+import { useUIStore } from '@/stores/uiStore'
 import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
 import type { MessageWithSender } from '@/types/app'
 
 export function useMessages(chatId: string | null) {
   const { user } = useAuthStore()
-  const { messages, addMessage, updateMessage, setTypingUsers, setMessages } = useChatStore()
+  const { messages, addMessage, updateMessage, setTypingUsers, setMessages, removeMessage } = useChatStore()
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const chatMessages = chatId ? (messages[chatId] ?? []) : []
 
@@ -28,7 +29,9 @@ export function useMessages(chatId: string | null) {
   useEffect(() => {
     if (!chatId) return
     return () => {
-      vaultChatImages(chatId).catch(() => {})
+      vaultChatImages(chatId).then((count) => {
+        if (count > 0) useUIStore.getState().showToast('Images vaulted', 'success')
+      }).catch(() => {})
     }
   }, [chatId])
 
@@ -68,6 +71,13 @@ export function useMessages(chatId: string | null) {
           updateMessage(chatId, payload.new.id, payload.new as Partial<MessageWithSender>)
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          removeMessage(chatId, (payload.old as { id: string }).id)
+        }
+      )
       .subscribe((status) => {
         // On SUBSCRIBED, re-fetch to catch any messages sent during connection setup
         if (status === 'SUBSCRIBED') {
@@ -80,7 +90,7 @@ export function useMessages(chatId: string | null) {
       })
 
     return () => { supabase.removeChannel(channel) }
-  }, [chatId, addMessage, updateMessage, setMessages])
+  }, [chatId, addMessage, updateMessage, setMessages, removeMessage])
 
   // Realtime typing
   useEffect(() => {

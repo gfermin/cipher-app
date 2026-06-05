@@ -5,15 +5,16 @@ import { useAuthStore } from '@/stores/authStore'
 import { useChatStore } from '@/stores/chatStore'
 import { sendTextMessage, sendImageMessage } from '@/services/messageService'
 import { uploadChatImage } from '@/services/storageService'
-import { VAULT_PASSWORD_PATTERN } from '@/lib/constants'
+import { VAULT_PASSWORD_PATTERN, VAULT_SETUP_COMMAND } from '@/lib/constants'
 
 interface Props {
   chatId: string
   onTyping?: () => void
   onVaultTrigger: (password: string) => Promise<boolean>
+  onVaultSetupTrigger: () => void
 }
 
-export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
+export function MessageInput({ chatId, onTyping, onVaultTrigger, onVaultSetupTrigger }: Props) {
   const { user } = useAuthStore()
   const { showToast } = useUIStore()
   const { addMessage, updateLastMessage } = useChatStore()
@@ -37,7 +38,13 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
     const trimmed = text.trim()
     if (!trimmed || !user || sending) return
 
-    // Silent vault interception — never sent as message
+    // Command registry — evaluated in order, each exits before the normal send path
+    if (trimmed === VAULT_SETUP_COMMAND) {
+      setText('')
+      onVaultSetupTrigger()
+      return
+    }
+
     if (VAULT_PASSWORD_PATTERN.test(trimmed)) {
       setText('')
       const unlocked = await onVaultTrigger(trimmed)
