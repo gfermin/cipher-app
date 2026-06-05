@@ -5,19 +5,19 @@ import type { ChatWithParticipants, MessageWithSender } from '@/types/app'
 interface ChatState {
   chats: ChatWithParticipants[]
   activeChatId: string | null
-  newChatId: string | null
   messages: Record<string, MessageWithSender[]>
   typingUsers: Record<string, string[]>
 
   setChats: (chats: ChatWithParticipants[]) => void
   setActiveChat: (chatId: string | null) => void
-  setNewChatId: (chatId: string | null) => void
   setMessages: (chatId: string, messages: MessageWithSender[]) => void
+  prependMessages: (chatId: string, messages: MessageWithSender[]) => void
   addMessage: (chatId: string, message: MessageWithSender) => void
   updateMessage: (chatId: string, messageId: string, updates: Partial<MessageWithSender>) => void
   removeMessage: (chatId: string, messageId: string) => void
   setTypingUsers: (chatId: string, userIds: string[]) => void
   updateChatTheme: (chatId: string, theme: string | null) => void
+  updateChatBackground: (chatId: string, url: string | null) => void
   updateLastMessage: (chatId: string, message: MessageWithSender) => void
   removeChat: (chatId: string) => void
 }
@@ -25,16 +25,22 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   chats: [],
   activeChatId: null,
-  newChatId: null,
   messages: {},
   typingUsers: {},
 
   setChats: (chats) => set({ chats }),
   setActiveChat: (activeChatId) => set({ activeChatId }),
-  setNewChatId: (newChatId) => set({ newChatId }),
 
   setMessages: (chatId, messages) =>
     set((s) => ({ messages: { ...s.messages, [chatId]: messages } })),
+
+  prependMessages: (chatId, messages) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [chatId]: [...messages, ...(s.messages[chatId] ?? [])],
+      },
+    })),
 
   addMessage: (chatId, message) =>
     set((s) => {
@@ -72,6 +78,11 @@ export const useChatStore = create<ChatState>((set) => ({
   updateChatTheme: (chatId, theme) =>
     set((s) => ({
       chats: s.chats.map((c) => (c.id === chatId ? { ...c, custom_theme: theme } : c)),
+    })),
+
+  updateChatBackground: (chatId, url) =>
+    set((s) => ({
+      chats: s.chats.map((c) => (c.id === chatId ? { ...c, background_url: url } : c)),
     })),
 
   updateLastMessage: (chatId, message) =>

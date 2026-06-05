@@ -9,6 +9,7 @@ interface UIState {
   chatSettingsOpen: boolean
   imageViewerUrl: string | null
   isMobileChatOpen: boolean
+  newChatId: string | null
 
   showToast: (message: string, type?: Toast['type']) => void
   dismissToast: (id: string) => void
@@ -16,14 +17,16 @@ interface UIState {
   setChatSettings: (open: boolean) => void
   setImageViewer: (url: string | null) => void
   setMobileChatOpen: (open: boolean) => void
+  setNewChatId: (chatId: string | null) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
   toasts: [],
-  vault: { isUnlocked: false, chatId: null },
+  vault: { isUnlocked: false, chatId: null, vaultToken: null },
   chatSettingsOpen: false,
   imageViewerUrl: null,
   isMobileChatOpen: false,
+  newChatId: null,
 
   showToast: (message, type = 'info') => {
     const id = generateId()
@@ -42,4 +45,6 @@ export const useUIStore = create<UIState>((set) => ({
   setImageViewer: (imageViewerUrl) => set({ imageViewerUrl }),
 
   setMobileChatOpen: (isMobileChatOpen) => set({ isMobileChatOpen }),
+
+  setNewChatId: (newChatId) => set({ newChatId }),
 }))

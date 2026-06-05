@@ -127,6 +127,7 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger, onVaultSetupTri
           ref={textareaRef}
           className="message-textarea"
           placeholder="Message"
+          aria-label="Message"
           value={text}
           onChange={(e) => {
             setText(e.target.value)

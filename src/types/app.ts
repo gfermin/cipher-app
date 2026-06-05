@@ -67,4 +67,5 @@ export interface Toast {
 export interface VaultState {
   isUnlocked: boolean
   chatId: string | null
+  vaultToken: string | null
 }

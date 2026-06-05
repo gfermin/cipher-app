@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useChatStore } from '@/stores/chatStore'
+import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
 import { getChats, createChat, searchUsers } from '@/services/chatService'
 import { useChats } from '@/hooks/useChats'
@@ -12,7 +13,8 @@ import type { Profile } from '@/types/app'
 export function ChatList() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const { chats, setChats, activeChatId, newChatId } = useChatStore()
+  const { chats, setChats, activeChatId } = useChatStore()
+  const { newChatId } = useUIStore()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)

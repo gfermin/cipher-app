@@ -26,10 +26,9 @@ async function callFunction(
 
 export async function getCodeMetadata(): Promise<CodeMetadata | null> {
   const sb = getSupabaseClient()
-  const { data, error } = await sb.rpc('get_my_code_metadata' as never)
+  const { data, error } = await sb.rpc('get_my_code_metadata')
   if (error) return null
-  const rows = data as CodeMetadata[] | null
-  return rows && rows.length > 0 ? rows[0] : null
+  return data && data.length > 0 ? (data[0] as CodeMetadata) : null
 }
 
 // ── Code Generation ───────────────────────────────────────────────

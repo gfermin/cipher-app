@@ -54,6 +54,15 @@ export async function getSession(): Promise<AuthUser | null> {
   }
 }
 
+export async function deleteAccount(): Promise<void> {
+  const res = await fetch('/api/account/delete', { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Account deletion failed')
+  }
+  await getSupabaseClient().auth.signOut().catch(() => {})
+}
+
 export async function updateProfile(updates: { display_name?: string | null; app_theme?: string }): Promise<void> {
   const sb = getSupabaseClient()
   const { data: { user } } = await sb.auth.getUser()

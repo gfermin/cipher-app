@@ -3,11 +3,11 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { DeleteModal } from '@/components/ui/DeleteModal'
+import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { deleteChat, updateChatTheme } from '@/services/chatService'
-import { setVaultPassword } from '@/services/vaultService'
+import { deleteChat, updateChatTheme, setChatBackground } from '@/services/chatService'
 import { uploadAvatar } from '@/services/storageService'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
@@ -26,11 +26,9 @@ export function ChatSettingsPanel({ chat }: Props) {
   const router = useRouter()
   const { user } = useAuthStore()
   const { chatSettingsOpen, setChatSettings, showToast } = useUIStore()
-  const { updateChatTheme: updateThemeInStore, removeChat } = useChatStore()
+  const { updateChatTheme: updateThemeInStore, updateChatBackground, removeChat } = useChatStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [vaultPin, setVaultPin] = useState('')
-  const [settingVault, setSettingVault] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
   const supabase = getSupabaseClient()
 
@@ -57,21 +55,6 @@ export function ChatSettingsPanel({ chat }: Props) {
     }
   }
 
-  async function handleSetVaultPassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (vaultPin.length !== 6) return
-    setSettingVault(true)
-    try {
-      await setVaultPassword(chat.id, vaultPin)
-      setVaultPin('')
-      showToast('Vault password set', 'success')
-    } catch {
-      showToast('Failed to set vault password', 'error')
-    } finally {
-      setSettingVault(false)
-    }
-  }
-
   async function handlePrivateAvatar(file: File | undefined) {
     if (!file || !user) return
     try {
@@ -83,6 +66,18 @@ export function ChatSettingsPanel({ chat }: Props) {
     } catch {
       showToast('Failed to upload avatar', 'error')
     }
+  }
+
+  async function handleSaveBackground(url: string) {
+    await setChatBackground(chat.id, url)
+    updateChatBackground(chat.id, url)
+    showToast('Background updated', 'success')
+  }
+
+  async function handleRemoveBackground() {
+    await setChatBackground(chat.id, null)
+    updateChatBackground(chat.id, null)
+    showToast('Background removed', 'success')
   }
 
   const currentTheme = chat.custom_theme ?? 'default'
@@ -161,41 +156,20 @@ export function ChatSettingsPanel({ chat }: Props) {
           </div>
         </div>
 
-        {/* Vault password */}
+        {/* Background image */}
         <div className="cs-section">
-          <div className="cs-section-title">Vault Password</div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-3)', marginBottom: 12 }}>
-            Set a 6-digit PIN to protect photos in this chat.
-          </p>
-          <form onSubmit={handleSetVaultPassword} style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              pattern="\d{6}"
-              placeholder="6-digit PIN"
-              value={vaultPin}
-              onChange={(e) => setVaultPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              style={{
-                flex: 1, padding: '8px 12px',
-                background: 'var(--bg-input)', border: '1px solid var(--border)',
-                borderRadius: 'var(--r-md)', color: 'var(--text-1)',
-                fontSize: 'var(--text-base)', letterSpacing: 8,
-              }}
+          <div className="cs-section-title">Chat Background</div>
+          {user && (
+            <BackgroundPicker
+              label="This conversation"
+              description="Overrides your global background for this chat only"
+              currentUrl={chat.background_url ?? null}
+              userId={user.id}
+              chatId={chat.id}
+              onSave={handleSaveBackground}
+              onRemove={handleRemoveBackground}
             />
-            <button
-              type="submit"
-              className="vault-set-btn"
-              style={{ width: 'auto', padding: '8px 16px' }}
-              disabled={vaultPin.length !== 6 || settingVault}
-            >
-              {settingVault ? '…' : 'Set'}
-            </button>
-          </form>
+          )}
         </div>
 
         {/* Delete */}

@@ -8,18 +8,18 @@ export async function getChats(userId: string): Promise<ChatWithParticipants[]> 
     .from('chat_participants').select('chat_id').eq('user_id', userId)
   if (!participations?.length) return []
 
-  const chatIds = (participations as { chat_id: string }[]).map((p) => p.chat_id)
+  const chatIds = participations.map((p) => p.chat_id)
 
   const { data: chats } = await sb.from('chats').select('*').in('id', chatIds)
   if (!chats?.length) return []
 
   const results: ChatWithParticipants[] = []
 
-  for (const rawChat of chats as { id: string; custom_theme: string | null; created_at: string; updated_at: string }[]) {
+  for (const rawChat of chats) {
     const { data: parts } = await sb
       .from('chat_participants').select('user_id').eq('chat_id', rawChat.id)
 
-    const userIds = ((parts ?? []) as { user_id: string }[]).map((p) => p.user_id)
+    const userIds = (parts ?? []).map((p) => p.user_id)
 
     const { data: profiles } = await sb.from('profiles').select('*').in('id', userIds)
     const profileList = (profiles ?? []) as Profile[]
@@ -29,7 +29,7 @@ export async function getChats(userId: string): Promise<ChatWithParticipants[]> 
     const { data: lastMsgArr } = await sb
       .from('messages').select('*').eq('chat_id', rawChat.id)
       .order('created_at', { ascending: false }).limit(1)
-    const lastMessage = ((lastMsgArr ?? []) as Message[])[0] ?? null
+    const lastMessage = (lastMsgArr ?? [])[0] as Message | undefined ?? null
 
     const { count: unreadCount } = await sb
       .from('messages').select('id', { count: 'exact', head: true })
@@ -49,7 +49,7 @@ export async function getChats(userId: string): Promise<ChatWithParticipants[]> 
       lastMessage,
       unreadCount: unreadCount ?? 0,
       otherUser,
-      myPreferences: (myPrefs as ChatWithParticipants['myPreferences']) ?? null,
+      myPreferences: myPrefs ?? null,
       hasVault: !!vault,
     })
   }
@@ -61,33 +61,11 @@ export async function getChats(userId: string): Promise<ChatWithParticipants[]> 
   })
 }
 
-export async function createChat(currentUserId: string, otherUserId: string): Promise<string> {
+export async function createChat(_currentUserId: string, otherUserId: string): Promise<string> {
   const sb = getSupabaseClient()
-
-  const { data: myParts } = await sb
-    .from('chat_participants').select('chat_id').eq('user_id', currentUserId)
-
-  if (myParts) {
-    for (const p of myParts as { chat_id: string }[]) {
-      const { data: match } = await sb
-        .from('chat_participants').select('chat_id')
-        .eq('chat_id', p.chat_id).eq('user_id', otherUserId).maybeSingle()
-      if (match) return (match as { chat_id: string }).chat_id
-    }
-  }
-
-  const { data: chat, error } = await sb
-    .from('chats').insert({ custom_theme: null }).select().single()
-  if (error || !chat) throw new Error('Failed to create chat')
-
-  const chatId = (chat as { id: string }).id
-
-  await sb.from('chat_participants').insert([
-    { chat_id: chatId, user_id: currentUserId },
-    { chat_id: chatId, user_id: otherUserId },
-  ])
-
-  return chatId
+  const { data, error } = await sb.rpc('create_direct_chat', { p_other_user_id: otherUserId })
+  if (error) throw new Error(error.message)
+  return data as string
 }
 
 export async function deleteChat(chatId: string): Promise<void> {
@@ -111,16 +89,28 @@ export async function searchUsers(query: string, currentUserId: string): Promise
   return (data ?? []) as Profile[]
 }
 
-export async function markMessagesRead(chatId: string, userId: string): Promise<void> {
+export async function markMessagesRead(chatId: string, _userId: string): Promise<void> {
   const sb = getSupabaseClient()
-  const { data: msgs } = await sb
-    .from('messages').select('id, read_by').eq('chat_id', chatId).neq('sender_id', userId)
+  const { error } = await sb.rpc('mark_messages_read', { p_chat_id: chatId })
+  if (error) throw new Error(error.message)
+}
 
-  if (!msgs?.length) return
-  const toUpdate = (msgs as { id: string; read_by: string[] }[])
-    .filter((m) => !m.read_by.includes(userId))
+export async function setChatBackground(chatId: string, url: string | null): Promise<void> {
+  const sb = getSupabaseClient()
+  const { error } = await sb
+    .from('chats')
+    .update({ background_url: url, updated_at: new Date().toISOString() })
+    .eq('id', chatId)
+  if (error) throw new Error(error.message)
+}
 
-  for (const msg of toUpdate) {
-    await sb.from('messages').update({ read_by: [...msg.read_by, userId] }).eq('id', msg.id)
-  }
+export async function setGlobalBackground(url: string | null): Promise<void> {
+  const sb = getSupabaseClient()
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await sb
+    .from('profiles')
+    .update({ global_background_url: url, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+  if (error) throw new Error(error.message)
 }

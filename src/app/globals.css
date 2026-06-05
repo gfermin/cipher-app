@@ -88,6 +88,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #050010;
   --vault-accent: #9b59b6;
   --vault-glow: rgba(155,89,182,0.4);
+  --bg-scrim: rgba(0,0,0,0.35);
 }
 
 [data-theme="light"] {
@@ -130,6 +131,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #0e0020;
   --vault-accent: #9b59b6;
   --vault-glow: rgba(155,89,182,0.4);
+  --bg-scrim: rgba(255,255,255,0.5);
 }
 
 [data-theme="pink"] {
@@ -172,6 +174,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #100008;
   --vault-accent: #ff6b9d;
   --vault-glow: rgba(255,107,157,0.4);
+  --bg-scrim: rgba(0,0,0,0.35);
 }
 
 [data-theme="pink-light"] {
@@ -214,6 +217,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #0e0008;
   --vault-accent: #ff6b9d;
   --vault-glow: rgba(255,107,157,0.4);
+  --bg-scrim: rgba(255,255,255,0.5);
 }
 
 [data-theme="blue"] {
@@ -256,6 +260,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #000810;
   --vault-accent: #00b4d8;
   --vault-glow: rgba(0,180,216,0.4);
+  --bg-scrim: rgba(0,0,0,0.35);
 }
 
 [data-theme="blue-light"] {
@@ -298,6 +303,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #000810;
   --vault-accent: #00b4d8;
   --vault-glow: rgba(0,180,216,0.4);
+  --bg-scrim: rgba(255,255,255,0.5);
 }
 
 [data-theme="green"] {
@@ -340,6 +346,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #000a04;
   --vault-accent: #52b788;
   --vault-glow: rgba(82,183,136,0.4);
+  --bg-scrim: rgba(0,0,0,0.35);
 }
 
 [data-theme="green-light"] {
@@ -382,6 +389,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #000a04;
   --vault-accent: #52b788;
   --vault-glow: rgba(82,183,136,0.4);
+  --bg-scrim: rgba(255,255,255,0.5);
 }
 
 [data-theme="red"] {
@@ -424,6 +432,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #0a0002;
   --vault-accent: #e63946;
   --vault-glow: rgba(230,57,70,0.4);
+  --bg-scrim: rgba(0,0,0,0.35);
 }
 
 [data-theme="red-light"] {
@@ -466,6 +475,7 @@ a { text-decoration: none; color: inherit; }
   --vault-bg: #0a0002;
   --vault-accent: #e63946;
   --vault-glow: rgba(230,57,70,0.4);
+  --bg-scrim: rgba(255,255,255,0.5);
 }
 
 /* ================================================================
@@ -537,6 +547,35 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+.chat-bg-wrap {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.chat-bg-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.chat-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-scrim);
+}
+
+.chat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  min-height: 0;
 }
 
 .empty-state {
@@ -1378,6 +1417,9 @@ a { text-decoration: none; color: inherit; }
 }
 
 .cs-avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   padding: var(--sp-4) 0;
 }
@@ -2315,4 +2357,159 @@ a { text-decoration: none; color: inherit; }
   .vault-transition-overlay,
   .vault-item { animation: none; opacity: 1; filter: none; }
   .sheet { animation: none; }
+}
+
+/* ================================================================
+   IMAGE CROP MODAL — Phase 6
+   ================================================================ */
+
+.crop-modal-card {
+  max-width: 400px;
+}
+
+.crop-viewport {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-app);
+  overflow: hidden;
+  max-height: 340px;
+}
+
+/* Override react-image-crop library defaults to match Cipher tokens */
+.ReactCrop__crop-selection {
+  border: 2px solid var(--accent-light);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+
+.ReactCrop__drag-handle::after {
+  background: var(--accent-light);
+  border: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-full);
+}
+
+.crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+}
+
+.crop-zoom-icon {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  user-select: none;
+  width: 12px;
+  text-align: center;
+}
+
+.crop-zoom-icon--large {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.crop-zoom-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: var(--r-full);
+  background: var(--bg-surface-3);
+  outline: none;
+  cursor: pointer;
+}
+
+.crop-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform var(--ease-fast);
+}
+
+.crop-zoom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.crop-zoom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.crop-btn-confirm {
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: background var(--ease-fast);
+}
+
+.crop-btn-confirm:hover { background: var(--accent-2); }
+
+/* ================================================================
+   BACKGROUND PICKER — Phase 7
+   ================================================================ */
+
+.bg-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.bg-picker-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.bg-picker-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.bg-picker-desc {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.bg-picker-remove {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  transition: background var(--ease-fast), color var(--ease-fast);
+}
+
+.bg-picker-remove:hover:not(:disabled) {
+  background: var(--danger-muted);
+  color: var(--danger);
+}
+
+.bg-picker-preview {
+  width: 100%;
+  height: 100px;
+  border-radius: var(--r-md);
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--border);
 }
