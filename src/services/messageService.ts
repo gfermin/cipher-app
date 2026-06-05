@@ -49,11 +49,12 @@ export async function deleteMessage(messageId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-export async function getVaultedMessages(chatId: string): Promise<MessageWithSender[]> {
+// Requires a vault session token issued by verifyUserVaultCode.
+// The server validates the token before returning vaulted rows,
+// so vault content never reaches the client without a successful unlock.
+export async function getVaultedMessages(chatId: string, token: string): Promise<MessageWithSender[]> {
   const sb = getSupabaseClient()
-  const { data, error } = await sb
-    .from('messages').select('*').eq('chat_id', chatId)
-    .eq('type', 'image').eq('is_vaulted', true).order('created_at', { ascending: false })
+  const { data, error } = await sb.rpc('get_vault_messages' as never, { p_chat_id: chatId, p_token: token } as never)
   if (error) throw new Error(error.message)
   return Promise.all(((data ?? []) as RawMsg[]).map(enrichMessage))
 }

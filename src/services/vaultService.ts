@@ -30,9 +30,9 @@ export async function setUserVaultCode(chatId: string, code: string): Promise<vo
   if (error) throw new Error((error as { message: string }).message)
 }
 
-// Returns true (correct), false (incorrect), null (no code set),
-// or 'rate_limited' when the server rejects due to too many attempts.
-export async function verifyUserVaultCode(chatId: string, code: string): Promise<boolean | null | 'rate_limited'> {
+// Returns a vault session token string (correct), false (incorrect),
+// null (no code set), or 'rate_limited' when the server rate-limits.
+export async function verifyUserVaultCode(chatId: string, code: string): Promise<string | false | null | 'rate_limited'> {
   const sb = getSupabaseClient()
   const { data, error } = await sb.rpc('verify_user_vault_code' as never, { p_chat_id: chatId, p_code: code } as never)
   if (error) {
@@ -40,7 +40,8 @@ export async function verifyUserVaultCode(chatId: string, code: string): Promise
     return false
   }
   if (data === null || data === undefined) return null
-  return data === true
+  if (data === '') return false
+  return data as string
 }
 
 export async function hasUserVaultCode(chatId: string): Promise<boolean> {

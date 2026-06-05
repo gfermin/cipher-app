@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function VaultGallery({ chatId, onClose }: Props) {
-  const { setImageViewer } = useUIStore()
+  const { setImageViewer, vault } = useUIStore()
   const { removeMessage } = useChatStore()
   const [items, setItems] = useState<MessageWithSender[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,7 +24,8 @@ export function VaultGallery({ chatId, onClose }: Props) {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
-    getVaultedMessages(chatId)
+    if (!vault.vaultToken) { setLoading(false); return }
+    getVaultedMessages(chatId, vault.vaultToken)
       .then(setItems)
       .finally(() => setLoading(false))
 
@@ -33,7 +34,7 @@ export function VaultGallery({ chatId, onClose }: Props) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [chatId, onClose])
+  }, [chatId, onClose, vault.vaultToken])
 
   // Realtime: remove items deleted by the other participant while gallery is open
   useEffect(() => {

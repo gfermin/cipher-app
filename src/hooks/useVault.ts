@@ -41,9 +41,10 @@ export function useVault() {
         return false
       }
 
-      if (result === true) {
+      if (result !== false) {
+        // result is the vault session token UUID string
         failCountRef.current = 0
-        setVault({ isUnlocked: true, chatId })
+        setVault({ isUnlocked: true, chatId, vaultToken: result })
         return true
       }
 
@@ -55,7 +56,7 @@ export function useVault() {
   )
 
   const lockVault = useCallback(() => {
-    setVault({ isUnlocked: false, chatId: null })
+    setVault({ isUnlocked: false, chatId: null, vaultToken: null })
   }, [setVault])
 
   return {

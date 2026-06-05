@@ -20,7 +20,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   toasts: [],
-  vault: { isUnlocked: false, chatId: null },
+  vault: { isUnlocked: false, chatId: null, vaultToken: null },
   chatSettingsOpen: false,
   imageViewerUrl: null,
   isMobileChatOpen: false,
