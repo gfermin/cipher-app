@@ -29,6 +29,19 @@ export async function getMessagesBefore(chatId: string, beforeTimestamp: string)
   return Promise.all((data ?? []).slice().reverse().map(enrichMessage))
 }
 
+// Reconnect catch-up — fetches messages newer than afterTimestamp so the subscription
+// can merge any rows that arrived during a disconnection window without clobbering
+// older messages the user had loaded via pagination.
+export async function getMessagesAfter(chatId: string, afterTimestamp: string): Promise<MessageWithSender[]> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb
+    .from('messages').select('*').eq('chat_id', chatId)
+    .gt('created_at', afterTimestamp)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return Promise.all((data ?? []).map(enrichMessage))
+}
+
 export async function sendTextMessage(chatId: string, senderId: string, content: string): Promise<MessageWithSender> {
   const sb = getSupabaseClient()
   const { data, error } = await sb

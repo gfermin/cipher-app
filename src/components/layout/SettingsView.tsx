@@ -3,10 +3,11 @@ import { useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useTheme } from '@/hooks/useTheme'
-import { updateProfile, signOut } from '@/services/authService'
+import { updateProfile, signOut, deleteAccount } from '@/services/authService'
 import { AvatarUpload } from '@/components/settings/AvatarUpload'
 import { ThemeSelector } from '@/components/settings/ThemeSelector'
 import { ContactCodePanel } from '@/components/contacts/ContactCodePanel'
+import { DeleteModal } from '@/components/ui/DeleteModal'
 import { useRouter } from 'next/navigation'
 
 interface Props { onBack?: () => void }
@@ -21,6 +22,8 @@ export function SettingsView({ onBack }: Props) {
   const [tab, setTab] = useState<Tab>('Profile')
   const [displayName, setDisplayName] = useState<string>(user?.profile.display_name ?? '')
   const [saving, setSaving] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -43,6 +46,19 @@ export function SettingsView({ onBack }: Props) {
     await signOut().catch(() => {})
     setUser(null)
     router.push('/login')
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    try {
+      await deleteAccount()
+      setUser(null)
+      router.push('/login')
+    } catch {
+      showToast('Failed to delete account. Try again.', 'error')
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   return (
@@ -109,7 +125,7 @@ export function SettingsView({ onBack }: Props) {
               </button>
             </form>
 
-            <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+            <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button
                 className="danger-btn"
                 onClick={handleSignOut}
@@ -121,6 +137,20 @@ export function SettingsView({ onBack }: Props) {
                   <line x1="21" y1="12" x2="9" y2="12"/>
                 </svg>
                 Sign Out
+              </button>
+
+              <button
+                className="danger-btn"
+                onClick={() => setShowDeleteConfirm(true)}
+                style={{ marginTop: 0, opacity: 0.7 }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+                Delete Account
               </button>
             </div>
           </div>
@@ -154,6 +184,16 @@ export function SettingsView({ onBack }: Props) {
           </div>
         )}
       </div>
+
+      {showDeleteConfirm && (
+        <DeleteModal
+          title="Delete your account?"
+          description="This permanently deletes your account, all your messages, vault images, and contact data. This cannot be undone."
+          onConfirm={handleDeleteAccount}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={deleting}
+        />
+      )}
     </div>
   )
 }

@@ -125,7 +125,15 @@ export function ChatPanel({ chatId, onBack }: Props) {
         onBack={() => { setMobileChatOpen(false); onBack?.() }}
       />
 
-      <div className="messages-area" ref={messagesAreaRef} onScroll={handleScroll}>
+      <div
+        className="messages-area"
+        ref={messagesAreaRef}
+        onScroll={handleScroll}
+        role="list"
+        aria-label="Messages"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {messages.map((msg) => (
           <MessageBubble
             key={msg.id}

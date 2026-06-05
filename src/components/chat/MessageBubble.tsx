@@ -25,7 +25,7 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
 
   if (message.type === 'deleted') {
     return (
-      <div className={`message-wrap ${isOwn ? 'outgoing' : ''}`}>
+      <div className={`message-wrap ${isOwn ? 'outgoing' : ''}`} role="listitem">
         <div className={`bubble ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
           <span className="bubble-deleted">
             {isOwn ? 'You deleted this message' : 'This message was deleted'}
@@ -39,7 +39,11 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
     if (message.is_vaulted && !vaultUnlocked) return null
 
     return (
-      <div className={`message-wrap ${isOwn ? 'outgoing' : ''}`}>
+      <div
+        className={`message-wrap ${isOwn ? 'outgoing' : ''}`}
+        role="listitem"
+        aria-label={`${isOwn ? 'You' : message.sender?.display_name ?? message.sender?.username ?? 'Them'} sent a photo at ${formatMessageTime(message.created_at)}`}
+      >
         <div className={`bubble bubble-image ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
           {message.image_url ? (
             <div style={{ cursor: 'pointer' }} onClick={() => setImageViewer(message.image_url!)}>
@@ -64,6 +68,8 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
   return (
     <div
       className={`message-wrap ${isOwn ? 'outgoing' : ''}`}
+      role="listitem"
+      aria-label={`${isOwn ? 'You' : message.sender?.display_name ?? message.sender?.username ?? 'Them'}: ${message.content ?? ''} at ${formatMessageTime(message.created_at)}`}
       onContextMenu={(e) => {
         if (isOwn && onDelete) { e.preventDefault(); onDelete(message.id) }
       }}

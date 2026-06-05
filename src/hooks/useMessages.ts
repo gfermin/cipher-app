@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { getMessages, getMessagesBefore, setTyping, clearTyping } from '@/services/messageService'
+import { getMessages, getMessagesBefore, getMessagesAfter, setTyping, clearTyping } from '@/services/messageService'
 import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
 import type { MessageWithSender } from '@/types/app'
 
@@ -12,6 +12,7 @@ export function useMessages(chatId: string | null) {
   const { messages, addMessage, updateMessage, setTypingUsers, setMessages, prependMessages, removeMessage } = useChatStore()
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadingMoreRef = useRef(false)
+  const subscribedOnceRef = useRef(false)
   const [hasMore, setHasMore] = useState(false)
   const chatMessages = chatId ? (messages[chatId] ?? []) : []
 
@@ -19,6 +20,7 @@ export function useMessages(chatId: string | null) {
     if (!chatId) return
     let mounted = true
     setHasMore(false)
+    subscribedOnceRef.current = false
 
     getMessages(chatId).then((msgs) => {
       if (!mounted) return
@@ -88,9 +90,24 @@ export function useMessages(chatId: string | null) {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+          if (!subscribedOnceRef.current) {
+            // First subscription: initial load already done; just mark as connected.
+            subscribedOnceRef.current = true
+          } else {
+            // Reconnect: fetch only messages that arrived during the disconnection
+            // window and merge them — preserves any pagination history the user loaded.
+            const latest = useChatStore.getState().messages[chatId]?.at(-1)
+            if (latest) {
+              getMessagesAfter(chatId, latest.created_at)
+                .then((newMsgs) => { newMsgs.forEach((m) => addMessage(chatId, m)) })
+                .catch(() => {})
+            } else {
+              getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+            }
+          }
         }
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Hard error: full refresh is safest.
           getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
         }
       })

@@ -325,6 +325,7 @@ export type Database = {
       cleanup_expired_contact_codes: { Args: Record<PropertyKey, never>; Returns: number }
       // Returns chat UUID string on success
       create_direct_chat: { Args: { p_other_user_id: string }; Returns: string }
+      delete_my_account: { Args: Record<PropertyKey, never>; Returns: { image_paths: string[]; avatar_paths: string[] } }
       create_chat_request: { Args: { p_request_token: string }; Returns: string }
       delete_vault_image: { Args: { p_message_id: string }; Returns: string }
       expire_stale_chat_requests: { Args: Record<PropertyKey, never>; Returns: number }
