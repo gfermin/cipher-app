@@ -61,33 +61,11 @@ export async function getChats(userId: string): Promise<ChatWithParticipants[]> 
   })
 }
 
-export async function createChat(currentUserId: string, otherUserId: string): Promise<string> {
+export async function createChat(_currentUserId: string, otherUserId: string): Promise<string> {
   const sb = getSupabaseClient()
-
-  const { data: myParts } = await sb
-    .from('chat_participants').select('chat_id').eq('user_id', currentUserId)
-
-  if (myParts) {
-    for (const p of myParts as { chat_id: string }[]) {
-      const { data: match } = await sb
-        .from('chat_participants').select('chat_id')
-        .eq('chat_id', p.chat_id).eq('user_id', otherUserId).maybeSingle()
-      if (match) return (match as { chat_id: string }).chat_id
-    }
-  }
-
-  const { data: chat, error } = await sb
-    .from('chats').insert({ custom_theme: null }).select().single()
-  if (error || !chat) throw new Error('Failed to create chat')
-
-  const chatId = (chat as { id: string }).id
-
-  await sb.from('chat_participants').insert([
-    { chat_id: chatId, user_id: currentUserId },
-    { chat_id: chatId, user_id: otherUserId },
-  ])
-
-  return chatId
+  const { data, error } = await sb.rpc('create_direct_chat', { p_other_user_id: otherUserId } as never)
+  if (error) throw new Error(error.message)
+  return data as string
 }
 
 export async function deleteChat(chatId: string): Promise<void> {
@@ -111,16 +89,8 @@ export async function searchUsers(query: string, currentUserId: string): Promise
   return (data ?? []) as Profile[]
 }
 
-export async function markMessagesRead(chatId: string, userId: string): Promise<void> {
+export async function markMessagesRead(chatId: string, _userId: string): Promise<void> {
   const sb = getSupabaseClient()
-  const { data: msgs } = await sb
-    .from('messages').select('id, read_by').eq('chat_id', chatId).neq('sender_id', userId)
-
-  if (!msgs?.length) return
-  const toUpdate = (msgs as { id: string; read_by: string[] }[])
-    .filter((m) => !m.read_by.includes(userId))
-
-  for (const msg of toUpdate) {
-    await sb.from('messages').update({ read_by: [...msg.read_by, userId] }).eq('id', msg.id)
-  }
+  const { error } = await sb.rpc('mark_messages_read', { p_chat_id: chatId } as never)
+  if (error) throw new Error(error.message)
 }
