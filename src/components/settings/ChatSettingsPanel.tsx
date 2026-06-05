@@ -7,7 +7,6 @@ import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { deleteChat, updateChatTheme } from '@/services/chatService'
-import { setVaultPassword } from '@/services/vaultService'
 import { uploadAvatar } from '@/services/storageService'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
@@ -29,8 +28,6 @@ export function ChatSettingsPanel({ chat }: Props) {
   const { updateChatTheme: updateThemeInStore, removeChat } = useChatStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [vaultPin, setVaultPin] = useState('')
-  const [settingVault, setSettingVault] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
   const supabase = getSupabaseClient()
 
@@ -54,21 +51,6 @@ export function ChatSettingsPanel({ chat }: Props) {
     } finally {
       setDeleting(false)
       setShowDeleteModal(false)
-    }
-  }
-
-  async function handleSetVaultPassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (vaultPin.length !== 6) return
-    setSettingVault(true)
-    try {
-      await setVaultPassword(chat.id, vaultPin)
-      setVaultPin('')
-      showToast('Vault password set', 'success')
-    } catch {
-      showToast('Failed to set vault password', 'error')
-    } finally {
-      setSettingVault(false)
     }
   }
 
@@ -159,43 +141,6 @@ export function ChatSettingsPanel({ chat }: Props) {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Vault password */}
-        <div className="cs-section">
-          <div className="cs-section-title">Vault Password</div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-3)', marginBottom: 12 }}>
-            Set a 6-digit PIN to protect photos in this chat.
-          </p>
-          <form onSubmit={handleSetVaultPassword} style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              pattern="\d{6}"
-              placeholder="6-digit PIN"
-              value={vaultPin}
-              onChange={(e) => setVaultPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              style={{
-                flex: 1, padding: '8px 12px',
-                background: 'var(--bg-input)', border: '1px solid var(--border)',
-                borderRadius: 'var(--r-md)', color: 'var(--text-1)',
-                fontSize: 'var(--text-base)', letterSpacing: 8,
-              }}
-            />
-            <button
-              type="submit"
-              className="vault-set-btn"
-              style={{ width: 'auto', padding: '8px 16px' }}
-              disabled={vaultPin.length !== 6 || settingVault}
-            >
-              {settingVault ? '…' : 'Set'}
-            </button>
-          </form>
         </div>
 
         {/* Delete */}
