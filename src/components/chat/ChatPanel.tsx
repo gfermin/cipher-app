@@ -4,7 +4,7 @@ import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useMessages } from '@/hooks/useMessages'
-import { useVault } from '@/hooks/useVault'
+import { useVault, useAutoVault } from '@/hooks/useVault'
 import { deleteMessage } from '@/services/messageService'
 import { markMessagesRead } from '@/services/chatService'
 import { ChatHeader } from './ChatHeader'
@@ -28,6 +28,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
   const { setMobileChatOpen } = useUIStore()
   const { messages, handleTyping, loadMoreMessages, hasMore } = useMessages(chatId)
   const { isUnlocked, tryUnlockWithInput, lockVault } = useVault()
+  useAutoVault(chatId)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesAreaRef = useRef<HTMLDivElement>(null)
   const prevScrollHeightRef = useRef(0)

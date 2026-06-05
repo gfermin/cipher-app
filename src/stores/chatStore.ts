@@ -5,13 +5,11 @@ import type { ChatWithParticipants, MessageWithSender } from '@/types/app'
 interface ChatState {
   chats: ChatWithParticipants[]
   activeChatId: string | null
-  newChatId: string | null
   messages: Record<string, MessageWithSender[]>
   typingUsers: Record<string, string[]>
 
   setChats: (chats: ChatWithParticipants[]) => void
   setActiveChat: (chatId: string | null) => void
-  setNewChatId: (chatId: string | null) => void
   setMessages: (chatId: string, messages: MessageWithSender[]) => void
   prependMessages: (chatId: string, messages: MessageWithSender[]) => void
   addMessage: (chatId: string, message: MessageWithSender) => void
@@ -26,13 +24,11 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   chats: [],
   activeChatId: null,
-  newChatId: null,
   messages: {},
   typingUsers: {},
 
   setChats: (chats) => set({ chats }),
   setActiveChat: (activeChatId) => set({ activeChatId }),
-  setNewChatId: (newChatId) => set({ newChatId }),
 
   setMessages: (chatId, messages) =>
     set((s) => ({ messages: { ...s.messages, [chatId]: messages } })),

@@ -3,8 +3,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { getMessages, getMessagesBefore, setTyping, clearTyping, vaultChatImages } from '@/services/messageService'
-import { useUIStore } from '@/stores/uiStore'
+import { getMessages, getMessagesBefore, setTyping, clearTyping } from '@/services/messageService'
 import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
 import type { MessageWithSender } from '@/types/app'
 
@@ -29,24 +28,6 @@ export function useMessages(chatId: string | null) {
 
     return () => { mounted = false }
   }, [chatId, setMessages])
-
-  // Best-effort vault on browser close — beforeunload is unreliable on mobile
-  useEffect(() => {
-    if (!chatId) return
-    function handleBeforeUnload() { vaultChatImages(chatId!) }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [chatId])
-
-  // Vault images on unmount (navigation away)
-  useEffect(() => {
-    if (!chatId) return
-    return () => {
-      vaultChatImages(chatId).then((count) => {
-        if (count > 0) useUIStore.getState().showToast('Images vaulted', 'success')
-      }).catch(() => {})
-    }
-  }, [chatId])
 
   const loadMoreMessages = useCallback(async () => {
     if (!chatId || loadingMoreRef.current || !hasMore) return

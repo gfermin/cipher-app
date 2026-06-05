@@ -24,8 +24,8 @@ export async function POST(request: Request) {
   // Ownership check via SECURITY DEFINER RPC (bypasses the is_vaulted RLS
   // restriction so vaulted image paths are verifiable server-side).
   const { data: owns, error: ownsError } = await supabase.rpc(
-    'check_owns_image' as never,
-    { p_public_id: public_id } as never
+    'check_owns_image',
+    { p_public_id: public_id }
   )
   if (ownsError || !owns) {
     return NextResponse.json({ error: 'Asset not found or access denied' }, { status: 403 })

@@ -1,7 +1,8 @@
 'use client'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useUIStore } from '@/stores/uiStore'
 import { verifyUserVaultCode } from '@/services/vaultService'
+import { vaultChatImages } from '@/services/messageService'
 import { VAULT_PASSWORD_PATTERN } from '@/lib/constants'
 
 export function useVault() {
@@ -66,4 +67,26 @@ export function useVault() {
     lockVault,
     showToast,
   }
+}
+
+// Handles vault auto-lock when navigating away from a chat.
+// Separated from useMessages so vault responsibility lives in the vault domain.
+export function useAutoVault(chatId: string) {
+  const { showToast } = useUIStore()
+
+  // Best-effort vault on browser close — beforeunload is unreliable on mobile
+  useEffect(() => {
+    function handleBeforeUnload() { vaultChatImages(chatId) }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [chatId])
+
+  // Vault images on unmount (navigation away from chat)
+  useEffect(() => {
+    return () => {
+      vaultChatImages(chatId).then((count) => {
+        if (count > 0) showToast('Images vaulted', 'success')
+      }).catch(() => {})
+    }
+  }, [chatId, showToast])
 }

@@ -23,8 +23,8 @@ function RequestCard({ request }: { request: ChatRequest }) {
   const router = useRouter()
   const { user } = useAuthStore()
   const { removeRequest } = useContactStore()
-  const { showToast, setMobileChatOpen } = useUIStore()
-  const { setChats, setActiveChat, setNewChatId } = useChatStore()
+  const { showToast, setMobileChatOpen, setNewChatId } = useUIStore()
+  const { setChats, setActiveChat } = useChatStore()
   const [busy, setBusy] = useState(false)
 
   async function handleAccept() {

@@ -36,20 +36,14 @@ export async function getSentRequests(): Promise<ChatRequest[]> {
 
 export async function sendContactRequest(lookupToken: string): Promise<string> {
   const sb = getSupabaseClient()
-  const { data, error } = await sb.rpc(
-    'create_chat_request' as never,
-    { p_request_token: lookupToken } as never
-  )
+  const { data, error } = await sb.rpc('create_chat_request', { p_request_token: lookupToken })
   if (error) throw new Error(error.message)
   return data as string
 }
 
 export async function acceptContactRequest(requestId: string): Promise<string> {
   const sb = getSupabaseClient()
-  const { data, error } = await sb.rpc(
-    'accept_chat_request' as never,
-    { p_request_id: requestId } as never
-  )
+  const { data, error } = await sb.rpc('accept_chat_request', { p_request_id: requestId })
   if (error) throw new Error(error.message)
   return data as string
 }
@@ -58,10 +52,7 @@ export async function acceptContactRequest(requestId: string): Promise<string> {
 // distinguish rejection from still-pending. This is intentional per §6.
 export async function rejectContactRequest(requestId: string): Promise<void> {
   const sb = getSupabaseClient()
-  const { error } = await sb.rpc(
-    'reject_chat_request' as never,
-    { p_request_id: requestId } as never
-  )
+  const { error } = await sb.rpc('reject_chat_request', { p_request_id: requestId })
   if (error) throw new Error(error.message)
 }
 
