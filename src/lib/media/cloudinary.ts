@@ -37,14 +37,27 @@ export const cloudinaryProvider: MediaProvider = {
   },
 
   async deleteImage(publicId: string): Promise<void> {
-    // Cloudinary deletion requires a server-side signed request.
-    // Create a /api/media/delete route when automated cleanup is needed.
-    // Until then, unused media can be managed via the Cloudinary dashboard.
-    void publicId
+    if (!publicId) return
+    const res = await fetch('/api/media/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ public_id: publicId }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      throw new Error(err.error ?? 'Media deletion failed')
+    }
   },
 
   getImageUrl(publicIdOrUrl: string): string {
     if (publicIdOrUrl.startsWith('http')) return publicIdOrUrl
     return `https://res.cloudinary.com/${cloudName()}/image/upload/${publicIdOrUrl}`
   },
+}
+
+// Insert q_auto,f_auto transformations into a Cloudinary URL for optimised delivery.
+// Non-Cloudinary URLs are returned unchanged.
+export function addCloudinaryQuality(url: string): string {
+  if (!url.includes('res.cloudinary.com')) return url
+  return url.replace('/upload/', '/upload/q_auto,f_auto/')
 }

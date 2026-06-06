@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function VaultGallery({ chatId, onClose }: Props) {
-  const { setImageViewer } = useUIStore()
+  const { setImageViewer, vault } = useUIStore()
   const { removeMessage } = useChatStore()
   const [items, setItems] = useState<MessageWithSender[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,7 +24,8 @@ export function VaultGallery({ chatId, onClose }: Props) {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
-    getVaultedMessages(chatId)
+    if (!vault.vaultToken) { setLoading(false); return }
+    getVaultedMessages(chatId, vault.vaultToken)
       .then(setItems)
       .finally(() => setLoading(false))
 
@@ -33,7 +34,7 @@ export function VaultGallery({ chatId, onClose }: Props) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [chatId, onClose])
+  }, [chatId, onClose, vault.vaultToken])
 
   // Realtime: remove items deleted by the other participant while gallery is open
   useEffect(() => {
@@ -68,7 +69,7 @@ export function VaultGallery({ chatId, onClose }: Props) {
 
   return (
     <>
-      <div className="vault-gallery">
+      <div className="vault-gallery" role="region" aria-label="Vault gallery">
         <div className="vault-gallery-header">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--vault-accent)" strokeWidth="1.5">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -97,14 +98,16 @@ export function VaultGallery({ chatId, onClose }: Props) {
             <span style={{ fontSize: 'var(--text-sm)' }}>Vault is empty</span>
           </div>
         ) : (
-          <div className="vault-gallery-grid">
+          <div className="vault-gallery-grid" role="list" aria-label="Vault photos">
             {items.map((item, i) => (
               <div
                 key={item.id}
                 className="vault-item"
+                role="listitem"
                 style={{ animationDelay: `${i * 80}ms` }}
                 onClick={() => item.image_url && setImageViewer(item.image_url)}
                 title={formatMessageTime(item.created_at)}
+                aria-label={`Vault photo from ${formatMessageTime(item.created_at)}`}
               >
                 {item.image_url && (
                   <Image
