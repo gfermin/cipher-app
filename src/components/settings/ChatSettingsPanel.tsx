@@ -7,7 +7,7 @@ import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { deleteChat, updateChatTheme, setChatBackground } from '@/services/chatService'
+import { deleteChat, updateChatTheme, setChatBackground, setChatHidden } from '@/services/chatService'
 import { uploadAvatar } from '@/services/storageService'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
@@ -20,15 +20,19 @@ const CHAT_THEME_COLORS: Record<string, string> = {
   rose: 'linear-gradient(135deg, #f43f5e, #be123c)',
 }
 
-interface Props { chat: ChatWithParticipants }
+interface Props {
+  chat: ChatWithParticipants
+  isHidden?: boolean
+}
 
-export function ChatSettingsPanel({ chat }: Props) {
+export function ChatSettingsPanel({ chat, isHidden }: Props) {
   const router = useRouter()
   const { user } = useAuthStore()
   const { chatSettingsOpen, setChatSettings, showToast } = useUIStore()
-  const { updateChatTheme: updateThemeInStore, updateChatBackground, removeChat } = useChatStore()
+  const { updateChatTheme: updateThemeInStore, updateChatBackground, removeChat, addChat, setActiveHiddenChat } = useChatStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [hiding, setHiding] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
   const supabase = getSupabaseClient()
 
@@ -38,6 +42,37 @@ export function ChatSettingsPanel({ chat }: Props) {
     const newTheme = themeId === 'default' ? null : themeId
     await updateChatTheme(chat.id, newTheme).catch(() => {})
     updateThemeInStore(chat.id, newTheme)
+  }
+
+  async function handleHideChat() {
+    setHiding(true)
+    try {
+      await setChatHidden(chat.id, true)
+      removeChat(chat.id)
+      setChatSettings(false)
+      router.push('/chats')
+    } catch {
+      showToast('Failed to hide conversation', 'error')
+    } finally {
+      setHiding(false)
+    }
+  }
+
+  async function handleUnhideChat() {
+    setHiding(true)
+    try {
+      await setChatHidden(chat.id, false)
+      // Add back to the regular chat list so the sidebar shows it immediately
+      addChat(chat)
+      // Clear the hidden-mode flag so AppLayout treats this as a regular chat
+      setActiveHiddenChat(null)
+      setChatSettings(false)
+      showToast('Conversation restored', 'success')
+    } catch {
+      showToast('Failed to restore conversation', 'error')
+    } finally {
+      setHiding(false)
+    }
   }
 
   async function handleDelete() {

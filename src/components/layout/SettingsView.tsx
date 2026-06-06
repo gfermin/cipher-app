@@ -1,10 +1,14 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useChatStore } from '@/stores/chatStore'
 import { useTheme } from '@/hooks/useTheme'
-import { updateProfile, signOut, deleteAccount } from '@/services/authService'
-import { setGlobalBackground } from '@/services/chatService'
+import { updateProfile, signOut, deleteAccount, verifyAccountPassword } from '@/services/authService'
+import {
+  setGlobalBackground,
+  setChatLockEnabled as setChatLockEnabledRPC,
+} from '@/services/chatService'
 import { AvatarUpload } from '@/components/settings/AvatarUpload'
 import { ThemeSelector } from '@/components/settings/ThemeSelector'
 import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
@@ -14,18 +18,38 @@ import { useRouter } from 'next/navigation'
 
 interface Props { onBack?: () => void }
 
-const TABS = ['Profile', 'Appearance', 'Contact Code', 'About'] as const
+const TABS = ['Profile', 'Appearance', 'Privacy', 'Contact Code', 'About'] as const
 type Tab = (typeof TABS)[number]
+
+const SESSION_TTL_MS = 5 * 60 * 1000
+const MAX_PW_ATTEMPTS = 5
 
 export function SettingsView({ onBack }: Props) {
   const router = useRouter()
   const { user, setUser } = useAuthStore()
-  const { showToast } = useUIStore()
+  const { chats } = useChatStore()
+  const {
+    showToast,
+    chatLockEnabled,
+    setChatLockEnabled,
+    lockAllChats,
+    chatLockSession,
+    setChatLockSession,
+  } = useUIStore()
   const [tab, setTab] = useState<Tab>('Profile')
   const [displayName, setDisplayName] = useState<string>(user?.profile.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [lockToggling, setLockToggling] = useState(false)
+
+  // Password gate for disabling Chat Lock
+  const [disableLockVerifying, setDisableLockVerifying] = useState(false)
+  const [disablePassword, setDisablePassword] = useState('')
+  const [disablePwError, setDisablePwError] = useState<string | null>(null)
+  const [disablePwChecking, setDisablePwChecking] = useState(false)
+  const [disablePwAttempts, setDisablePwAttempts] = useState(0)
+  const disablePwRef = useRef<HTMLInputElement>(null)
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -77,6 +101,75 @@ export function SettingsView({ onBack }: Props) {
       setUser({ ...user, profile: { ...user.profile, global_background_url: null } })
     }
     showToast('Background removed', 'success')
+  }
+
+  // Performs the actual Chat Lock enable/disable after identity is confirmed
+  async function performChatLockToggle(next: boolean) {
+    setLockToggling(true)
+    try {
+      await setChatLockEnabledRPC(next)
+      setChatLockEnabled(next)
+      if (next) {
+        lockAllChats(chats.map((c) => c.id))
+      } else {
+        lockAllChats([])
+      }
+      if (user) {
+        setUser({ ...user, profile: { ...user.profile, chat_lock_enabled: next } })
+      }
+      showToast(`Chat Lock ${next ? 'enabled' : 'disabled'}`, 'success')
+    } catch {
+      showToast('Failed to update Chat Lock', 'error')
+    } finally {
+      setLockToggling(false)
+    }
+  }
+
+  function handleToggleChatLock() {
+    const next = !chatLockEnabled
+    if (next) {
+      // Enabling — no verification needed (adding security, not removing it)
+      performChatLockToggle(true)
+      return
+    }
+    // Disabling — require identity verification unless session is still valid
+    const sessionValid = chatLockSession && Date.now() - chatLockSession.verifiedAt < SESSION_TTL_MS
+    if (sessionValid) {
+      performChatLockToggle(false)
+    } else {
+      setDisableLockVerifying(true)
+      setTimeout(() => disablePwRef.current?.focus(), 80)
+    }
+  }
+
+  async function handleDisableLockSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!disablePassword.trim() || disablePwChecking || disablePwAttempts >= MAX_PW_ATTEMPTS) return
+    setDisablePwChecking(true)
+    setDisablePwError(null)
+    const ok = await verifyAccountPassword(disablePassword)
+    setDisablePwChecking(false)
+    if (ok) {
+      setChatLockSession({ verifiedAt: Date.now() })
+      setDisableLockVerifying(false)
+      setDisablePassword('')
+      setDisablePwAttempts(0)
+      setDisablePwError(null)
+      performChatLockToggle(false)
+    } else {
+      const next = disablePwAttempts + 1
+      setDisablePwAttempts(next)
+      setDisablePassword('')
+      setDisablePwError(next >= MAX_PW_ATTEMPTS ? 'Too many failed attempts.' : 'Incorrect password.')
+      setTimeout(() => disablePwRef.current?.focus(), 60)
+    }
+  }
+
+  function cancelDisableLock() {
+    setDisableLockVerifying(false)
+    setDisablePassword('')
+    setDisablePwError(null)
+    setDisablePwAttempts(0)
   }
 
   return (
@@ -201,6 +294,28 @@ export function SettingsView({ onBack }: Props) {
           </div>
         )}
 
+        {tab === 'Privacy' && (
+          <div className="settings-section">
+            <div className="setting-row">
+              <div className="setting-label">
+                <div className="setting-label-title">Chat Lock</div>
+                <div className="setting-label-sub">
+                  Re-locks each chat when you navigate away. Unlock with your vault code.
+                </div>
+              </div>
+              <label className="toggle-switch" aria-label="Toggle Chat Lock">
+                <input
+                  type="checkbox"
+                  checked={chatLockEnabled}
+                  onChange={handleToggleChatLock}
+                  disabled={lockToggling}
+                />
+                <span className="toggle-track" />
+              </label>
+            </div>
+          </div>
+        )}
+
         {tab === 'Contact Code' && (
           <div className="settings-section">
             <div style={{ marginBottom: 16, fontSize: 'var(--text-sm)', color: 'var(--text-2)', lineHeight: 1.6 }}>
@@ -220,6 +335,59 @@ export function SettingsView({ onBack }: Props) {
           </div>
         )}
       </div>
+
+      {/* Password verification modal — shown when disabling Chat Lock */}
+      {disableLockVerifying && (
+        <div className="sheet-overlay" onClick={(e) => e.target === e.currentTarget && cancelDisableLock()}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Verify to disable Chat Lock">
+            <div className="sheet-handle" />
+            <div className="sheet-title">Verify identity</div>
+            <div className="sheet-sub">
+              Enter your account password to disable Chat Lock.
+            </div>
+
+            {disablePwError && (
+              <div className="sheet-validation-msg err" role="alert" style={{ textAlign: 'center', marginBottom: 'var(--sp-4)' }}>
+                {disablePwError}
+              </div>
+            )}
+
+            <form onSubmit={handleDisableLockSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+              <input
+                ref={disablePwRef}
+                className={`sheet-input${disablePwError ? ' error' : ''}`}
+                type="password"
+                placeholder="Account password"
+                value={disablePassword}
+                onChange={(e) => { setDisablePassword(e.target.value); setDisablePwError(null) }}
+                disabled={disablePwChecking || disablePwAttempts >= MAX_PW_ATTEMPTS}
+                autoComplete="current-password"
+                aria-label="Account password"
+              />
+              <div className="sheet-actions" style={{ marginTop: 'var(--sp-2)' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={cancelDisableLock}
+                  disabled={disablePwChecking}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="auth-btn"
+                  style={{ marginTop: 0 }}
+                  disabled={!disablePassword.trim() || disablePwChecking || disablePwAttempts >= MAX_PW_ATTEMPTS}
+                >
+                  {disablePwChecking
+                    ? <span className="sheet-spinner" style={{ margin: '0 auto', display: 'block' }} />
+                    : 'Verify'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <DeleteModal

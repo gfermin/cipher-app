@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { useChatStore } from '@/stores/chatStore'
@@ -27,23 +27,17 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
-  const { chats, activeChatId, setActiveChat } = useChatStore()
-  const { isMobileChatOpen, setMobileChatOpen } = useUIStore()
+  const { chats, activeChatId, setActiveChat, activeHiddenChat, setActiveHiddenChat } = useChatStore()
+  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, lockAllChats } = useUIStore()
   const { pendingRequests } = useContactStore()
 
   const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
 
-  // Keep subscriptions active for the whole session
   useContactRequests()
 
   useEffect(() => {
     if (!isLoading && !user) {
-      // Hard navigation resets the Zustand store on the next load, which prevents
-      // the infinite redirect loop where client auth state (user=null, isLoading=false)
-      // is out of sync with valid server-side session cookies. With router.replace the
-      // store is NOT reset on client-side navigation, so AppLayout immediately
-      // redirects again when middleware bounces the request back to /chats.
       window.location.replace('/login')
     }
   }, [user, isLoading])
@@ -52,15 +46,29 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
     if (initialChatId) {
       setActiveChat(initialChatId)
       setMobileChatOpen(true)
+    } else {
+      // User returned to the chat list — clear any stale hidden chat session so
+      // directly typing a hidden chat's URL won't bypass the hidden board flow.
+      if (useChatStore.getState().activeHiddenChat) {
+        setActiveHiddenChat(null)
+      }
     }
-  }, [initialChatId, setActiveChat, setMobileChatOpen])
+  }, [initialChatId, setActiveChat, setMobileChatOpen, setActiveHiddenChat])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
-  // Show loading while auth resolves OR while the unauthenticated redirect is
-  // in-flight. Never return null — a blank DOM is the bug we're fixing.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'hidden' && chatLockEnabled) {
+        lockAllChats(chats.map((c) => c.id))
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [chatLockEnabled, lockAllChats, chats])
+
   if (isLoading || !user) {
     return (
       <div className="app-root" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -69,7 +77,12 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
     )
   }
 
-  const activeChat = activeChatId ? chats.find((c) => c.id === activeChatId) : null
+  // Use activeHiddenChat as a fallback so ChatSettingsPanel renders for hidden chats
+  const activeChat = activeChatId
+    ? (chats.find((c) => c.id === activeChatId) ??
+        (activeHiddenChat?.id === activeChatId ? activeHiddenChat : null))
+    : null
+  const isViewingHiddenChat = !!activeHiddenChat && activeHiddenChat.id === activeChatId
   const pendingCount = pendingRequests.length
 
   function handleTabChange(tab: Tab) {
@@ -111,7 +124,9 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
       ) : activeChatId ? (
         <>
           <ChatPanel chatId={activeChatId} onBack={handleBack} />
-          {activeChat && <ChatSettingsPanel chat={activeChat} />}
+          {activeChat && (
+            <ChatSettingsPanel chat={activeChat} isHidden={isViewingHiddenChat} />
+          )}
         </>
       ) : (
         <div className="chat-panel empty-state" style={{ display: 'flex' }}>
