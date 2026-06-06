@@ -14,9 +14,10 @@ type Step = 'password' | 'code'
 interface Props {
   chatId: string
   onClose: () => void
+  onUnlocked?: () => void
 }
 
-export function ChatUnlockModal({ chatId, onClose }: Props) {
+export function ChatUnlockModal({ chatId, onClose, onUnlocked }: Props) {
   const router = useRouter()
   const {
     unlockChat,
@@ -180,14 +181,23 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
 
     // Success
     unlockChat(chatId)
-    router.push(`/chats/${chatId}`)
-    onClose()
+    if (onUnlocked) {
+      onUnlocked()
+    } else {
+      router.push(`/chats/${chatId}`)
+      onClose()
+    }
   }
 
   function handleOpenWithoutCode() {
+    setPendingVaultSetupChatId(chatId)
     unlockChat(chatId)
-    router.push(`/chats/${chatId}`)
-    onClose()
+    if (onUnlocked) {
+      onUnlocked()
+    } else {
+      router.push(`/chats/${chatId}`)
+      onClose()
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -310,7 +320,7 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
                   </button>
                   <button
                     className="auth-btn"
-                    onClick={() => { setPendingVaultSetupChatId(chatId); handleOpenWithoutCode() }}
+                    onClick={handleOpenWithoutCode}
                     style={{ marginTop: 0 }}
                   >
                     Set up vault code

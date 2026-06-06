@@ -10,6 +10,7 @@ import { useContactRequests } from '@/hooks/useContactRequests'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { ChatPanel } from '@/components/chat/ChatPanel'
+import { ChatUnlockModal } from '@/components/chat/ChatUnlockModal'
 import { ChatSettingsPanel } from '@/components/settings/ChatSettingsPanel'
 import { SettingsView } from './SettingsView'
 import { ContactsView } from '@/components/contacts/ContactsView'
@@ -28,7 +29,7 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
   const { chats, activeChatId, setActiveChat, activeHiddenChat, setActiveHiddenChat } = useChatStore()
-  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, lockAllChats } = useUIStore()
+  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, lockAllChats, lockedChats } = useUIStore()
   const { pendingRequests } = useContactStore()
 
   const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
@@ -122,12 +123,29 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
       ) : activeTab === 'contacts' ? (
         <ContactsView onBack={() => handleTabChange('chats')} />
       ) : activeChatId ? (
-        <>
-          <ChatPanel chatId={activeChatId} onBack={handleBack} />
-          {activeChat && (
-            <ChatSettingsPanel chat={activeChat} isHidden={isViewingHiddenChat} />
-          )}
-        </>
+        lockedChats.has(activeChatId) ? (
+          <>
+            <div className="chat-panel empty-state" style={{ display: 'flex' }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span style={{ fontSize: 'var(--text-sm)' }}>This chat is locked</span>
+            </div>
+            <ChatUnlockModal
+              chatId={activeChatId}
+              onClose={handleBack}
+              onUnlocked={() => {}}
+            />
+          </>
+        ) : (
+          <>
+            <ChatPanel chatId={activeChatId} onBack={handleBack} />
+            {activeChat && (
+              <ChatSettingsPanel chat={activeChat} isHidden={isViewingHiddenChat} />
+            )}
+          </>
+        )
       ) : (
         <div className="chat-panel empty-state" style={{ display: 'flex' }}>
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
