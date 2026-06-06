@@ -1,6 +1,7 @@
 'use client'
 import { useAuthStore } from '@/stores/authStore'
 import { ChatList } from '@/components/chat/ChatList'
+import { HiddenChatBoard } from '@/components/chat/HiddenChatBoard'
 import { Avatar } from '@/components/ui/Avatar'
 
 interface Props {
@@ -61,6 +62,7 @@ export function Sidebar({ hidden, pendingCount, onSettingsClick, onContactsClick
       </div>
 
       <ChatList />
+      <HiddenChatBoard />
     </div>
   )
 }

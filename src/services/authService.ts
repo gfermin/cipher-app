@@ -63,6 +63,18 @@ export async function deleteAccount(): Promise<void> {
   await getSupabaseClient().auth.signOut().catch(() => {})
 }
 
+export async function verifyAccountPassword(password: string): Promise<boolean> {
+  try {
+    const sb = getSupabaseClient()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user?.email) return false
+    const { error } = await sb.auth.signInWithPassword({ email: user.email, password })
+    return !error
+  } catch {
+    return false
+  }
+}
+
 export async function updateProfile(updates: { display_name?: string | null; app_theme?: string }): Promise<void> {
   const sb = getSupabaseClient()
   const { data: { user } } = await sb.auth.getUser()

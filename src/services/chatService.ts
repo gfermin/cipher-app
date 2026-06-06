@@ -1,14 +1,9 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants, Profile, Message } from '@/types/app'
 
-export async function getChats(userId: string): Promise<ChatWithParticipants[]> {
+async function hydrateChatIds(userId: string, chatIds: string[]): Promise<ChatWithParticipants[]> {
+  if (!chatIds.length) return []
   const sb = getSupabaseClient()
-
-  const { data: participations } = await sb
-    .from('chat_participants').select('chat_id').eq('user_id', userId)
-  if (!participations?.length) return []
-
-  const chatIds = participations.map((p) => p.chat_id)
 
   const { data: chats } = await sb.from('chats').select('*').in('id', chatIds)
   if (!chats?.length) return []
@@ -59,6 +54,45 @@ export async function getChats(userId: string): Promise<ChatWithParticipants[]> 
     const bTime = b.lastMessage?.created_at ?? b.created_at
     return new Date(bTime).getTime() - new Date(aTime).getTime()
   })
+}
+
+export async function getChats(userId: string): Promise<ChatWithParticipants[]> {
+  const sb = getSupabaseClient()
+
+  const { data: participations } = await sb
+    .from('chat_participants').select('chat_id').eq('user_id', userId)
+  if (!participations?.length) return []
+
+  // Fetch hidden chat IDs server-side so their content never enters the response
+  const { data: hiddenRows } = await sb.rpc('get_hidden_chats')
+  const hiddenIds = new Set((hiddenRows ?? []).map((r) => r.chat_id))
+
+  const chatIds = participations
+    .map((p) => p.chat_id)
+    .filter((id) => !hiddenIds.has(id))
+
+  return hydrateChatIds(userId, chatIds)
+}
+
+export async function getHiddenChats(userId: string): Promise<ChatWithParticipants[]> {
+  const sb = getSupabaseClient()
+
+  const { data: hiddenRows } = await sb.rpc('get_hidden_chats')
+  if (!hiddenRows?.length) return []
+
+  return hydrateChatIds(userId, hiddenRows.map((r) => r.chat_id))
+}
+
+export async function setChatHidden(chatId: string, hidden: boolean): Promise<void> {
+  const sb = getSupabaseClient()
+  const { error } = await sb.rpc('set_chat_hidden', { p_chat_id: chatId, p_hidden: hidden })
+  if (error) throw new Error(error.message)
+}
+
+export async function setChatLockEnabled(enabled: boolean): Promise<void> {
+  const sb = getSupabaseClient()
+  const { error } = await sb.rpc('set_chat_lock_enabled', { p_enabled: enabled })
+  if (error) throw new Error(error.message)
 }
 
 export async function createChat(_currentUserId: string, otherUserId: string): Promise<string> {
