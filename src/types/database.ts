@@ -63,6 +63,12 @@ export type Database = {
         }
         Relationships: []
       }
+      hidden_chats: {
+        Row: { user_id: string; chat_id: string; hidden_at: string }
+        Insert: { user_id: string; chat_id: string; hidden_at?: string }
+        Update: { user_id?: string; chat_id?: string; hidden_at?: string }
+        Relationships: []
+      }
       chat_user_preferences: {
         Row: {
           chat_id: string
@@ -261,6 +267,7 @@ export type Database = {
       profiles: {
         Row: {
           app_theme: string
+          chat_lock_enabled: boolean
           created_at: string
           display_name: string | null
           global_background_url: string | null
@@ -272,6 +279,7 @@ export type Database = {
         }
         Insert: {
           app_theme?: string
+          chat_lock_enabled?: boolean
           created_at?: string
           display_name?: string | null
           global_background_url?: string | null
@@ -283,6 +291,7 @@ export type Database = {
         }
         Update: {
           app_theme?: string
+          chat_lock_enabled?: boolean
           created_at?: string
           display_name?: string | null
           global_background_url?: string | null
@@ -324,6 +333,9 @@ export type Database = {
     }
     Functions: {
       _cipher_gen_code: { Args: Record<PropertyKey, never>; Returns: string }
+      get_hidden_chats: { Args: Record<PropertyKey, never>; Returns: { chat_id: string }[] }
+      set_chat_hidden: { Args: { p_chat_id: string; p_hidden: boolean }; Returns: undefined }
+      set_chat_lock_enabled: { Args: { p_enabled: boolean }; Returns: undefined }
       accept_chat_request: { Args: { p_request_id: string }; Returns: string }
       block_user: { Args: { p_blocked_id: string }; Returns: undefined }
       check_lookup_rate_limit: { Args: { p_user_id: string }; Returns: boolean }

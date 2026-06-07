@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { getChats, createChat, searchUsers } from '@/services/chatService'
 import { useChats } from '@/hooks/useChats'
 import { ChatItem } from './ChatItem'
+import { ChatUnlockModal } from './ChatUnlockModal'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Profile } from '@/types/app'
 
@@ -14,11 +15,12 @@ export function ChatList() {
   const router = useRouter()
   const { user } = useAuthStore()
   const { chats, setChats, activeChatId } = useChatStore()
-  const { newChatId } = useUIStore()
+  const { newChatId, chatLockEnabled, setChatLockEnabled, lockAllChats, lockChat, lockedChats } = useUIStore()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [unlockModalChatId, setUnlockModalChatId] = useState<string | null>(null)
 
   // Realtime chat list subscription
   useChats()
@@ -26,9 +28,16 @@ export function ChatList() {
   useEffect(() => {
     if (!user) return
     getChats(user.id)
-      .then(setChats)
+      .then((c) => {
+        setChats(c)
+        // Initialize chat lock state from the user's persisted preference
+        setChatLockEnabled(user.profile.chat_lock_enabled)
+        if (user.profile.chat_lock_enabled) {
+          lockAllChats(c.map((chat) => chat.id))
+        }
+      })
       .finally(() => setLoading(false))
-  }, [user, setChats])
+  }, [user, setChats, setChatLockEnabled, lockAllChats])
 
   useEffect(() => {
     if (!search.trim() || !user) {
@@ -55,6 +64,12 @@ export function ChatList() {
     }
   }
 
+  function handleSearchFocus() {
+    if (chatLockEnabled && activeChatId) {
+      lockChat(activeChatId)
+    }
+  }
+
   const filtered = search
     ? chats.filter((c) =>
         (c.otherUser.display_name ?? c.otherUser.username)
@@ -75,7 +90,11 @@ export function ChatList() {
             type="search"
             placeholder="Search or start new chat"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+            const val = e.target.value
+            setSearch(val)
+          }}
+            onFocus={handleSearchFocus}
             autoComplete="off"
           />
         </div>
@@ -132,11 +151,20 @@ export function ChatList() {
               isActive={activeChatId === chat.id}
               currentUserId={user?.id ?? ''}
               isNew={chat.id === newChatId}
+              isLocked={lockedChats.has(chat.id)}
               onClick={() => router.push(`/chats/${chat.id}`)}
+              onUnlockRequest={() => setUnlockModalChatId(chat.id)}
             />
           ))
         )}
       </div>
+
+      {unlockModalChatId && (
+        <ChatUnlockModal
+          chatId={unlockModalChatId}
+          onClose={() => setUnlockModalChatId(null)}
+        />
+      )}
     </>
   )
 }

@@ -54,3 +54,10 @@ export const cloudinaryProvider: MediaProvider = {
     return `https://res.cloudinary.com/${cloudName()}/image/upload/${publicIdOrUrl}`
   },
 }
+
+// Insert q_auto,f_auto transformations into a Cloudinary URL for optimised delivery.
+// Non-Cloudinary URLs are returned unchanged.
+export function addCloudinaryQuality(url: string): string {
+  if (!url.includes('res.cloudinary.com')) return url
+  return url.replace('/upload/', '/upload/q_auto,f_auto/')
+}

@@ -7,6 +7,7 @@ import { useMessages } from '@/hooks/useMessages'
 import { useVault, useAutoVault } from '@/hooks/useVault'
 import { deleteMessage } from '@/services/messageService'
 import { markMessagesRead } from '@/services/chatService'
+import { addCloudinaryQuality } from '@/lib/media/cloudinary'
 import { ChatHeader } from './ChatHeader'
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
@@ -24,8 +25,9 @@ interface Props {
 
 export function ChatPanel({ chatId, onBack }: Props) {
   const { user } = useAuthStore()
-  const { chats, typingUsers, updateMessage } = useChatStore()
-  const { setMobileChatOpen } = useUIStore()
+  const { chats, typingUsers, updateMessage, activeHiddenChat } = useChatStore()
+  const { setMobileChatOpen, chatLockEnabled, lockChat } = useUIStore()
+  const setPendingVaultSetupChatId = useUIStore((s) => s.setPendingVaultSetupChatId)
   const { messages, handleTyping, loadMoreMessages, hasMore } = useMessages(chatId)
   const { isUnlocked, tryUnlockWithInput, lockVault } = useVault()
   useAutoVault(chatId)
@@ -38,7 +40,32 @@ export function ChatPanel({ chatId, onBack }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Open VaultSetupModal automatically when navigated from the "no code set" unlock path
+  useEffect(() => {
+    const pending = useUIStore.getState().pendingVaultSetupChatId
+    if (pending === chatId) {
+      setPendingVaultSetupChatId(null)
+      setShowVaultSetup(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId])
+
+  // Ref so the cleanup closure always reads the latest lock state
+  const chatLockEnabledRef = useRef(chatLockEnabled)
+  useEffect(() => { chatLockEnabledRef.current = chatLockEnabled }, [chatLockEnabled])
+
+  // Lock the chat when the user navigates away (chatId changes or component unmounts)
+  // Note: do NOT clear activeHiddenChat here — React 18 Strict Mode runs this cleanup
+  // on the first (fake) unmount, which would clear the data before the real mount renders.
+  // activeHiddenChat is cleared by AppLayout when returning to the chat list instead.
+  useEffect(() => {
+    return () => {
+      if (chatLockEnabledRef.current) lockChat(chatId)
+    }
+  }, [chatId, lockChat])
+
   const chat = chats.find((c) => c.id === chatId)
+    ?? (activeHiddenChat?.id === chatId ? activeHiddenChat : null)
   const typingList = typingUsers[chatId] ?? []
 
   // Scroll to bottom on new messages (skip when prepending old messages)
@@ -126,7 +153,12 @@ export function ChatPanel({ chatId, onBack }: Props) {
     >
       {background && (
         <div className="chat-bg-wrap" aria-hidden="true">
-          <div className="chat-bg-layer" style={{ backgroundImage: `url(${background})` }} />
+          <img
+            className="chat-bg-layer"
+            src={addCloudinaryQuality(background)}
+            alt=""
+            decoding="async"
+          />
           <div className="chat-scrim" />
         </div>
       )}

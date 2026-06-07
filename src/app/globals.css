@@ -529,6 +529,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 .sidebar {
+  position: relative;
   width: var(--sidebar-w);
   flex-shrink: 0;
   height: 100%;
@@ -558,9 +559,10 @@ a { text-decoration: none; color: inherit; }
 .chat-bg-layer {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .chat-scrim {
@@ -848,6 +850,59 @@ a { text-decoration: none; color: inherit; }
   justify-content: center;
   padding: 0 5px;
   flex-shrink: 0;
+}
+
+/* === CHAT LOCK — LOCKED ITEM STATE === */
+
+.chat-item-lock-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  flex: 1;
+  min-width: 0;
+  user-select: none;
+}
+
+/* === HIDDEN CHAT BOARD === */
+
+.hidden-board {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  z-index: var(--z-overlay);
+}
+
+.hidden-board-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 60px;
+}
+
+.hidden-board-title {
+  flex: 1;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+
+.hidden-board-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.hidden-board-refresh {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-3) 0;
 }
 
 /* ================================================================
@@ -2512,4 +2567,52 @@ a { text-decoration: none; color: inherit; }
   background-size: cover;
   background-position: center;
   border: 1px solid var(--border);
+}
+
+/* === TOGGLE SWITCH === */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 26px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  transition: background var(--ease-fast), border-color var(--ease-fast);
+  pointer-events: none;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform var(--ease-fast), background var(--ease-fast);
+}
+.toggle-switch input:checked + .toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+.toggle-switch input:disabled + .toggle-track {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
