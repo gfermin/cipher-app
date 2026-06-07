@@ -34,6 +34,28 @@ export interface AuthUser {
   profile: Profile
 }
 
+export interface CodeMetadata {
+  has_code: boolean
+  expires_at: string | null
+  rotation_sequence: number | null
+  is_encrypted: boolean
+}
+
+export type ChatRequestStatus = 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
+
+export interface ChatRequest {
+  id: string
+  sender_id: string | null
+  receiver_id: string | null
+  code_hash_used: string
+  code_rotation_sequence: number
+  status: ChatRequestStatus
+  created_at: string
+  expires_at: string
+  responded_at: string | null
+  conversation_id: string | null
+}
+
 export type ToastType = 'success' | 'error' | 'info'
 
 export interface Toast {
@@ -45,4 +67,5 @@ export interface Toast {
 export interface VaultState {
   isUnlocked: boolean
   chatId: string | null
+  vaultToken: string | null
 }

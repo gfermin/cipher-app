@@ -1,36 +1,50 @@
 'use client'
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { getMessages, setTyping, clearTyping, vaultChatImages } from '@/services/messageService'
+import { getMessages, getMessagesBefore, getMessagesAfter, setTyping, clearTyping } from '@/services/messageService'
 import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
 import type { MessageWithSender } from '@/types/app'
 
 export function useMessages(chatId: string | null) {
   const { user } = useAuthStore()
-  const { messages, addMessage, updateMessage, setTypingUsers, setMessages } = useChatStore()
+  const { messages, addMessage, updateMessage, setTypingUsers, setMessages, prependMessages, removeMessage } = useChatStore()
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingMoreRef = useRef(false)
+  const subscribedOnceRef = useRef(false)
+  const [hasMore, setHasMore] = useState(false)
   const chatMessages = chatId ? (messages[chatId] ?? []) : []
 
   useEffect(() => {
     if (!chatId) return
     let mounted = true
+    setHasMore(false)
+    subscribedOnceRef.current = false
 
     getMessages(chatId).then((msgs) => {
-      if (mounted) setMessages(chatId, msgs)
+      if (!mounted) return
+      setMessages(chatId, msgs)
+      setHasMore(msgs.length === 40)
     })
 
     return () => { mounted = false }
   }, [chatId, setMessages])
 
-  // Vault images on unmount
-  useEffect(() => {
-    if (!chatId) return
-    return () => {
-      vaultChatImages(chatId).catch(() => {})
+  const loadMoreMessages = useCallback(async () => {
+    if (!chatId || loadingMoreRef.current || !hasMore) return
+    const oldest = useChatStore.getState().messages[chatId]?.[0]
+    if (!oldest) return
+
+    loadingMoreRef.current = true
+    try {
+      const older = await getMessagesBefore(chatId, oldest.created_at)
+      prependMessages(chatId, older)
+      setHasMore(older.length === 40)
+    } finally {
+      loadingMoreRef.current = false
     }
-  }, [chatId])
+  }, [chatId, hasMore, prependMessages])
 
   // Realtime messages
   useEffect(() => {
@@ -43,14 +57,21 @@ export function useMessages(chatId: string | null) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         async (payload) => {
-          const { data: sender } = await supabase
+          const { data: senderData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', payload.new.sender_id)
             .single()
-          if (sender) {
-            addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
+          const sender = senderData ?? {
+            id: payload.new.sender_id,
+            username: '',
+            display_name: null,
+            public_avatar: null,
+            app_theme: 'dark',
+            created_at: '',
+            updated_at: '',
           }
+          addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
         }
       )
       .on(
@@ -60,10 +81,39 @@ export function useMessages(chatId: string | null) {
           updateMessage(chatId, payload.new.id, payload.new as Partial<MessageWithSender>)
         }
       )
-      .subscribe()
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          removeMessage(chatId, (payload.old as { id: string }).id)
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          if (!subscribedOnceRef.current) {
+            // First subscription: initial load already done; just mark as connected.
+            subscribedOnceRef.current = true
+          } else {
+            // Reconnect: fetch only messages that arrived during the disconnection
+            // window and merge them — preserves any pagination history the user loaded.
+            const latest = useChatStore.getState().messages[chatId]?.at(-1)
+            if (latest) {
+              getMessagesAfter(chatId, latest.created_at)
+                .then((newMsgs) => { newMsgs.forEach((m) => addMessage(chatId, m)) })
+                .catch(() => {})
+            } else {
+              getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+            }
+          }
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Hard error: full refresh is safest.
+          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+        }
+      })
 
     return () => { supabase.removeChannel(channel) }
-  }, [chatId, addMessage, updateMessage])
+  }, [chatId, addMessage, updateMessage, setMessages, removeMessage])
 
   // Realtime typing
   useEffect(() => {
@@ -96,5 +146,5 @@ export function useMessages(chatId: string | null) {
     typingTimer.current = setTimeout(() => clearTyping(chatId, user.id), TYPING_DEBOUNCE_MS)
   }, [chatId, user])
 
-  return { messages: chatMessages, handleTyping }
+  return { messages: chatMessages, handleTyping, loadMoreMessages, hasMore }
 }

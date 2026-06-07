@@ -1,48 +1,76 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { useChatStore } from '@/stores/chatStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useContactStore } from '@/stores/contactStore'
+import { useContactRequests } from '@/hooks/useContactRequests'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { ChatPanel } from '@/components/chat/ChatPanel'
+import { ChatUnlockModal } from '@/components/chat/ChatUnlockModal'
 import { ChatSettingsPanel } from '@/components/settings/ChatSettingsPanel'
 import { SettingsView } from './SettingsView'
+import { ContactsView } from '@/components/contacts/ContactsView'
 import { ToastProvider } from '@/components/ui/ToastProvider'
+
+type Tab = 'chats' | 'contacts' | 'settings'
 
 interface Props {
   initialChatId?: string
   showSettings?: boolean
+  showContacts?: boolean
 }
 
-export function AppLayout({ initialChatId, showSettings }: Props) {
+export function AppLayout({ initialChatId, showSettings, showContacts }: Props) {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
-  const { chats, activeChatId, setActiveChat } = useChatStore()
-  const { isMobileChatOpen, setMobileChatOpen } = useUIStore()
-  const [activeTab, setActiveTab] = useState<'chats' | 'settings'>(showSettings ? 'settings' : 'chats')
+  const { chats, activeChatId, setActiveChat, activeHiddenChat, setActiveHiddenChat } = useChatStore()
+  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, lockAllChats, lockedChats } = useUIStore()
+  const { pendingRequests } = useContactStore()
+
+  const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
+
+  useContactRequests()
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login')
+      window.location.replace('/login')
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading])
 
   useEffect(() => {
     if (initialChatId) {
       setActiveChat(initialChatId)
       setMobileChatOpen(true)
+    } else {
+      // User returned to the chat list — clear any stale hidden chat session so
+      // directly typing a hidden chat's URL won't bypass the hidden board flow.
+      if (useChatStore.getState().activeHiddenChat) {
+        setActiveHiddenChat(null)
+      }
     }
-  }, [initialChatId, setActiveChat, setMobileChatOpen])
+  }, [initialChatId, setActiveChat, setMobileChatOpen, setActiveHiddenChat])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
-  if (isLoading) {
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'hidden' && chatLockEnabled) {
+        lockAllChats(chats.map((c) => c.id))
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [chatLockEnabled, lockAllChats, chats])
+
+  if (isLoading || !user) {
     return (
       <div className="app-root" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--text-3)', fontSize: 'var(--text-sm)' }}>Loading…</div>
@@ -50,14 +78,20 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
     )
   }
 
-  if (!user) return null
+  // Use activeHiddenChat as a fallback so ChatSettingsPanel renders for hidden chats
+  const activeChat = activeChatId
+    ? (chats.find((c) => c.id === activeChatId) ??
+        (activeHiddenChat?.id === activeChatId ? activeHiddenChat : null))
+    : null
+  const isViewingHiddenChat = !!activeHiddenChat && activeHiddenChat.id === activeChatId
+  const pendingCount = pendingRequests.length
 
-  const activeChat = activeChatId ? chats.find((c) => c.id === activeChatId) : null
-
-  function handleTabChange(tab: 'chats' | 'settings') {
+  function handleTabChange(tab: Tab) {
     setActiveTab(tab)
     if (tab === 'chats') {
       router.push('/chats')
+    } else if (tab === 'contacts') {
+      router.push('/contacts')
     } else {
       router.push('/settings')
     }
@@ -79,16 +113,39 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
     <div className="app-root">
       <Sidebar
         hidden={isMobileChatOpen}
+        pendingCount={pendingCount}
         onSettingsClick={() => handleTabChange('settings')}
+        onContactsClick={() => handleTabChange('contacts')}
       />
 
       {activeTab === 'settings' ? (
         <SettingsView onBack={() => handleTabChange('chats')} />
+      ) : activeTab === 'contacts' ? (
+        <ContactsView onBack={() => handleTabChange('chats')} />
       ) : activeChatId ? (
-        <>
-          <ChatPanel chatId={activeChatId} onBack={handleBack} />
-          {activeChat && <ChatSettingsPanel chat={activeChat} />}
-        </>
+        lockedChats.has(activeChatId) ? (
+          <>
+            <div className="chat-panel empty-state" style={{ display: 'flex' }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span style={{ fontSize: 'var(--text-sm)' }}>This chat is locked</span>
+            </div>
+            <ChatUnlockModal
+              chatId={activeChatId}
+              onClose={handleBack}
+              onUnlocked={() => {}}
+            />
+          </>
+        ) : (
+          <>
+            <ChatPanel chatId={activeChatId} onBack={handleBack} />
+            {activeChat && (
+              <ChatSettingsPanel chat={activeChat} isHidden={isViewingHiddenChat} />
+            )}
+          </>
+        )
       ) : (
         <div className="chat-panel empty-state" style={{ display: 'flex' }}>
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
@@ -98,7 +155,7 @@ export function AppLayout({ initialChatId, showSettings }: Props) {
         </div>
       )}
 
-      <MobileNav activeTab={activeTab} onTabChange={handleTabChange} />
+      <MobileNav activeTab={activeTab} pendingCount={pendingCount} onTabChange={handleTabChange} />
       <ToastProvider />
     </div>
   )

@@ -2,19 +2,22 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useChatStore } from '@/stores/chatStore'
 import { sendTextMessage, sendImageMessage } from '@/services/messageService'
 import { uploadChatImage } from '@/services/storageService'
-import { VAULT_PASSWORD_PATTERN } from '@/lib/constants'
+import { VAULT_PASSWORD_PATTERN, VAULT_SETUP_COMMAND } from '@/lib/constants'
 
 interface Props {
   chatId: string
   onTyping?: () => void
   onVaultTrigger: (password: string) => Promise<boolean>
+  onVaultSetupTrigger: () => void
 }
 
-export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
+export function MessageInput({ chatId, onTyping, onVaultTrigger, onVaultSetupTrigger }: Props) {
   const { user } = useAuthStore()
   const { showToast } = useUIStore()
+  const { addMessage, updateLastMessage } = useChatStore()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -35,7 +38,13 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
     const trimmed = text.trim()
     if (!trimmed || !user || sending) return
 
-    // Silent vault interception — never sent as message
+    // Command registry — evaluated in order, each exits before the normal send path
+    if (trimmed === VAULT_SETUP_COMMAND) {
+      setText('')
+      onVaultSetupTrigger()
+      return
+    }
+
     if (VAULT_PASSWORD_PATTERN.test(trimmed)) {
       setText('')
       const unlocked = await onVaultTrigger(trimmed)
@@ -46,14 +55,16 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
     setSending(true)
     setText('')
     try {
-      await sendTextMessage(chatId, user.id, trimmed)
+      const msg = await sendTextMessage(chatId, user.id, trimmed)
+      addMessage(chatId, msg)
+      updateLastMessage(chatId, msg)
     } catch {
       showToast('Failed to send message', 'error')
       setText(trimmed)
     } finally {
       setSending(false)
     }
-  }, [text, user, sending, chatId, onVaultTrigger, showToast])
+  }, [text, user, sending, chatId, onVaultTrigger, showToast, addMessage, updateLastMessage])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -67,7 +78,9 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
     setUploading(true)
     try {
       const { url, path } = await uploadChatImage(file, chatId, user.id)
-      await sendImageMessage(chatId, user.id, url, path)
+      const msg = await sendImageMessage(chatId, user.id, url, path)
+      addMessage(chatId, msg)
+      updateLastMessage(chatId, msg)
     } catch {
       showToast('Failed to send image', 'error')
     } finally {
@@ -114,6 +127,7 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger }: Props) {
           ref={textareaRef}
           className="message-textarea"
           placeholder="Message"
+          aria-label="Message"
           value={text}
           onChange={(e) => {
             setText(e.target.value)
