@@ -3,9 +3,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signUp } from '@/services/authService'
+import { useAuthStore } from '@/stores/authStore'
 
 export function RegisterForm() {
   const router = useRouter()
+  const { setUser } = useAuthStore()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -24,8 +26,17 @@ export function RegisterForm() {
 
     setLoading(true)
     try {
-      await signUp(username.trim(), password)
-      router.push('/login?registered=1')
+      const authUser = await signUp(username.trim(), password)
+      if (authUser) {
+        // Session was created immediately (email confirmation disabled).
+        // Populate the auth store now so AppLayout renders the app on the
+        // very first navigation — no redirect loop, no "loads forever".
+        setUser(authUser)
+        router.push('/chats')
+      } else {
+        // Email confirmation required — user must verify before logging in.
+        router.push('/login?registered=1')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
