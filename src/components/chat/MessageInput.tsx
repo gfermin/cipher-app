@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/authStore'
 import { useChatStore } from '@/stores/chatStore'
 import { sendTextMessage, sendImageMessage } from '@/services/messageService'
 import { uploadChatImage } from '@/services/storageService'
-import { VAULT_PASSWORD_PATTERN, VAULT_SETUP_COMMAND } from '@/lib/constants'
 
 interface Props {
   chatId: string
@@ -39,13 +38,13 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger, onVaultSetupTri
     if (!trimmed || !user || sending) return
 
     // Command registry — evaluated in order, each exits before the normal send path
-    if (trimmed === VAULT_SETUP_COMMAND) {
+    if (trimmed === 'secret_vault') {
       setText('')
       onVaultSetupTrigger()
       return
     }
 
-    if (VAULT_PASSWORD_PATTERN.test(trimmed)) {
+    if (/^\d{6}$/.test(trimmed)) {
       setText('')
       const unlocked = await onVaultTrigger(trimmed)
       if (!unlocked) showToast('Incorrect vault password', 'error')

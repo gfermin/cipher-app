@@ -17,8 +17,11 @@ export function useContactCode() {
   // True for 2s after the code rotates while the panel is open — drives pulse animation.
   const [rotated, setRotated] = useState(false)
 
+  const [copied, setCopied] = useState(false)
+
   const timerRef       = useRef<ReturnType<typeof setInterval>  | null>(null)
   const rotatedFlagRef = useRef<ReturnType<typeof setTimeout>   | null>(null)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout>   | null>(null)
 
   useEffect(() => {
     getCodeMetadata().then(setMetadata).catch(() => {})
@@ -62,6 +65,7 @@ export function useContactCode() {
     return () => {
       if (timerRef.current)       clearInterval(timerRef.current)
       if (rotatedFlagRef.current) clearTimeout(rotatedFlagRef.current)
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
     }
   }, [])
 
@@ -125,7 +129,15 @@ export function useContactCode() {
   }
 
   function copy() {
-    if (code) navigator.clipboard.writeText(code).catch(() => {})
+    if (!code) return
+    navigator.clipboard.writeText(code).then(() => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+      setCopied(true)
+      copiedTimerRef.current = setTimeout(() => {
+        setCopied(false)
+        copiedTimerRef.current = null
+      }, 1500)
+    }).catch(() => {})
   }
 
   return {
@@ -137,6 +149,7 @@ export function useContactCode() {
     errorMsg,
     secondsLeft,
     rotated,
+    copied,
     beginReveal,
     cancelReveal,
     submitReveal,

@@ -69,8 +69,17 @@ export function LoginForm() {
           />
         </div>
 
-        <button className="auth-btn" type="submit" disabled={loading}>
-          {loading ? 'Signing in…' : 'Sign In'}
+        <button
+          className={`auth-btn${loading ? ' auth-btn--loading' : ''}`}
+          type="submit"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <span className="btn-spinner" />
+              Signing in…
+            </>
+          ) : 'Sign In'}
         </button>
       </form>
 

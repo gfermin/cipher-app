@@ -1,7 +1,3 @@
-export const VAULT_PASSWORD_LENGTH = 6
-export const VAULT_PASSWORD_PATTERN = /^\d{6}$/
-export const VAULT_SETUP_COMMAND = 'secret_vault'
-
 export const THEMES = [
   { id: 'dark', label: 'Dark', family: 'Default', variant: 'dark' },
   { id: 'light', label: 'Light', family: 'Default', variant: 'light' },
