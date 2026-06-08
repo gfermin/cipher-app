@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useUIStore } from '@/stores/uiStore'
 import { verifyUserVaultCode } from '@/services/vaultService'
 import { vaultChatImages } from '@/services/messageService'
-import { VAULT_PASSWORD_PATTERN } from '@/lib/constants'
+import { getSupabaseClient } from '@/lib/supabase/client'
 
 export function useVault() {
   const { vault, setVault, showToast } = useUIStore()
@@ -12,7 +12,7 @@ export function useVault() {
 
   const tryUnlockWithInput = useCallback(
     async (input: string, chatId: string): Promise<boolean> => {
-      if (!VAULT_PASSWORD_PATTERN.test(input)) return false
+      if (!/^\d{6}$/.test(input)) return false
 
       // Client-side gate: mirrors the server cooldown so the user
       // doesn't need to wait for a round-trip to see the toast again.
@@ -57,6 +57,10 @@ export function useVault() {
   )
 
   const lockVault = useCallback(() => {
+    const { vault } = useUIStore.getState()
+    if (vault.chatId) {
+      Promise.resolve(getSupabaseClient().rpc('revoke_vault_token', { p_chat_id: vault.chatId })).catch(() => {})
+    }
     setVault({ isUnlocked: false, chatId: null, vaultToken: null })
   }, [setVault])
 

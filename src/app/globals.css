@@ -2019,6 +2019,19 @@ a { text-decoration: none; color: inherit; }
 
 .code-copy-btn:hover { background: var(--bg-surface-3); color: var(--text-1); }
 
+.code-copy-btn--copied {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  animation: copy-pop 0.2s ease;
+}
+.code-copy-btn--copied:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+
+@keyframes copy-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
 .code-timer-bar {
   height: 3px;
   background: var(--border);

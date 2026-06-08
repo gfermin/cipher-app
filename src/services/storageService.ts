@@ -37,3 +37,7 @@ export async function uploadBackground(
 export async function deleteFile(_bucket: string, path: string): Promise<void> {
   return mediaProvider.deleteImage(path)
 }
+
+export function optimizeImageUrl(url: string): string {
+  return mediaProvider.optimizeImageUrl(url)
+}

@@ -1,7 +1,6 @@
 'use client'
 import { create } from 'zustand'
-import type { ChatWithParticipants, MessageWithSender } from '@/types/app'
-import { useUIStore } from '@/stores/uiStore'
+import type { ChatWithParticipants, Message, MessageWithSender } from '@/types/app'
 
 interface ChatState {
   chats: ChatWithParticipants[]
@@ -14,13 +13,13 @@ interface ChatState {
   addChat: (chat: ChatWithParticipants) => void
   setMessages: (chatId: string, messages: MessageWithSender[]) => void
   prependMessages: (chatId: string, messages: MessageWithSender[]) => void
-  addMessage: (chatId: string, message: MessageWithSender) => void
+  addMessage: (chatId: string, message: MessageWithSender, isLocked?: boolean) => void
   updateMessage: (chatId: string, messageId: string, updates: Partial<MessageWithSender>) => void
   removeMessage: (chatId: string, messageId: string) => void
   setTypingUsers: (chatId: string, userIds: string[]) => void
   updateChatTheme: (chatId: string, theme: string | null) => void
   updateChatBackground: (chatId: string, url: string | null) => void
-  updateLastMessage: (chatId: string, message: MessageWithSender) => void
+  updateLastMessage: (chatId: string, message: Message) => void
   removeChat: (chatId: string) => void
   hiddenChats: ChatWithParticipants[]
   setHiddenChats: (chats: ChatWithParticipants[]) => void
@@ -54,12 +53,12 @@ export const useChatStore = create<ChatState>((set) => ({
       },
     })),
 
-  addMessage: (chatId, message) =>
+  addMessage: (chatId, message, isLocked = false) =>
     set((s) => {
       const existing = s.messages[chatId] ?? []
       if (existing.some((m) => m.id === message.id)) return s
       const newMessages = { ...s.messages, [chatId]: [...existing, message] }
-      if (useUIStore.getState().lockedChats.has(chatId)) {
+      if (isLocked) {
         return { messages: newMessages }
       }
       return {

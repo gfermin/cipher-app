@@ -7,7 +7,7 @@ import { useMessages } from '@/hooks/useMessages'
 import { useVault, useAutoVault } from '@/hooks/useVault'
 import { deleteMessage } from '@/services/messageService'
 import { markMessagesRead } from '@/services/chatService'
-import { addCloudinaryQuality } from '@/lib/media/cloudinary'
+import { optimizeImageUrl } from '@/services/storageService'
 import { ChatHeader } from './ChatHeader'
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
@@ -171,7 +171,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
         <div className="chat-bg-wrap" aria-hidden="true">
           <img
             className="chat-bg-layer"
-            src={addCloudinaryQuality(background)}
+            src={optimizeImageUrl(background)}
             alt=""
             decoding="async"
           />
