@@ -1,29 +1,6 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { deleteFile } from '@/services/storageService'
 
-// ── Legacy (chat_vaults) — kept for backwards compatibility ──────
-
-export async function setVaultPassword(chatId: string, password: string): Promise<void> {
-  const sb = getSupabaseClient()
-  const { error } = await sb.rpc('set_vault_password', { p_chat_id: chatId, p_password: password })
-  if (error) throw new Error(error.message)
-}
-
-export async function verifyVaultPassword(chatId: string, password: string): Promise<boolean> {
-  const sb = getSupabaseClient()
-  const { data, error } = await sb.rpc('verify_vault_password', { p_chat_id: chatId, p_password: password })
-  if (error) return false
-  return data === true
-}
-
-export async function hasVault(chatId: string): Promise<boolean> {
-  const sb = getSupabaseClient()
-  const { data } = await sb.from('chat_vaults').select('id').eq('chat_id', chatId).maybeSingle()
-  return !!data
-}
-
-// ── Per-user vault codes (user_vault_codes) ──────────────────────
-
 export async function setUserVaultCode(chatId: string, code: string): Promise<void> {
   const sb = getSupabaseClient()
   const { error } = await sb.rpc('set_user_vault_code', { p_chat_id: chatId, p_code: code })
