@@ -137,8 +137,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'SIGNED_IN') {
         if (session?.user) {
-          const ok = await loadProfile(session.user.id, session.user.email!)
-          if (!ok) resolve(null)
+          // Do NOT go through resolve() here — it is guarded by the `resolved` flag
+          // and would be a no-op if AuthProvider already resolved with null on this
+          // page load (e.g. no session on /register page, then signUp() fires SIGNED_IN).
+          // Instead call setUser() directly so the auth state is ALWAYS updated on
+          // sign-in, regardless of prior initialization state.
+          try {
+            const profile = await queryWithTimeout<Profile>(
+              supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+              8000
+            )
+            if (!mounted) return
+            if (profile) {
+              setUser({ id: session.user.id, email: session.user.email!, profile })
+              // Only stop the loading spinner if it hasn't been stopped yet.
+              if (!resolved) { resolved = true; setLoading(false) }
+            } else {
+              resolve(null)
+            }
+          } catch {
+            if (mounted) resolve(null)
+          }
         } else {
           resolve(null)
         }
