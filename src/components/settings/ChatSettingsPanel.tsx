@@ -7,9 +7,8 @@ import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { deleteChat, updateChatTheme, setChatBackground, setChatHidden } from '@/services/chatService'
+import { deleteChat, updateChatTheme, setChatBackground, setChatHidden, updatePrivateAvatar } from '@/services/chatService'
 import { uploadAvatar } from '@/services/storageService'
-import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
 import { CHAT_THEMES } from '@/lib/constants'
 
@@ -34,7 +33,6 @@ export function ChatSettingsPanel({ chat, isHidden }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [hiding, setHiding] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
-  const supabase = getSupabaseClient()
 
   const { otherUser, myPreferences } = chat
 
@@ -94,9 +92,7 @@ export function ChatSettingsPanel({ chat, isHidden }: Props) {
     if (!file || !user) return
     try {
       const { url } = await uploadAvatar(file, user.id, `private/${chat.id}`)
-      await supabase
-        .from('chat_user_preferences')
-        .upsert({ chat_id: chat.id, user_id: user.id, private_avatar: url })
+      await updatePrivateAvatar(chat.id, user.id, url)
       showToast('Private avatar updated', 'success')
     } catch {
       showToast('Failed to upload avatar', 'error')

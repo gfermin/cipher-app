@@ -29,7 +29,7 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
   const { chats, activeChatId, setActiveChat, activeHiddenChat, setActiveHiddenChat } = useChatStore()
-  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, lockAllChats, lockedChats } = useUIStore()
+  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats } = useUIStore()
   const { pendingRequests } = useContactStore()
 
   const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
@@ -37,6 +37,8 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
 
   useContactRequests()
 
+  // Runtime session-expiry guard — middleware handles unauthenticated page loads;
+  // this catches the SIGNED_OUT event while the app is already open.
   useEffect(() => {
     if (!isLoading && !user) {
       window.location.replace('/login')
@@ -59,6 +61,15 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  // Sync chat lock preference from the persisted DB profile on every app load.
+  // uiStore defaults chatLockEnabled to false; without this effect it resets on refresh.
+  useEffect(() => {
+    if (!user?.profile.chat_lock_enabled) return
+    setChatLockEnabled(true)
+    if (chats.length > 0) lockAllChats(chats.map((c) => c.id))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, chats.length > 0])
 
   useEffect(() => {
     function handleVisibility() {
