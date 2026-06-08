@@ -26,7 +26,7 @@ interface Props {
 export function ChatPanel({ chatId, onBack }: Props) {
   const { user } = useAuthStore()
   const { chats, typingUsers, updateMessage, activeHiddenChat } = useChatStore()
-  const { setMobileChatOpen, chatLockEnabled, lockChat } = useUIStore()
+  const { setMobileChatOpen, chatLockEnabled, lockChat, isMobileChatOpen } = useUIStore()
   const setPendingVaultSetupChatId = useUIStore((s) => s.setPendingVaultSetupChatId)
   const { messages, handleTyping, loadMoreMessages, hasMore } = useMessages(chatId)
   const { isUnlocked, tryUnlockWithInput, lockVault } = useVault()
@@ -156,7 +156,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
 
   if (!chat) {
     return (
-      <div className="chat-panel" style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <div className={`chat-panel${isMobileChatOpen ? ' visible' : ''}`} style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--text-3)', fontSize: 'var(--text-sm)' }}>Chat not found</div>
       </div>
     )
@@ -164,7 +164,7 @@ export function ChatPanel({ chatId, onBack }: Props) {
 
   return (
     <div
-      className={`chat-panel ${chatTheme ? `chat-theme-${chatTheme}` : ''}`}
+      className={`chat-panel${isMobileChatOpen ? ' visible' : ''}${chatTheme ? ` chat-theme-${chatTheme}` : ''}`}
       style={background ? { background: 'transparent' } : undefined}
     >
       {background && (
