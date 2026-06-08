@@ -21,15 +21,36 @@ export async function signIn(username: string, password: string): Promise<AuthUs
   return { id: data.user.id, email: data.user.email!, profile: profile as Profile }
 }
 
-export async function signUp(username: string, password: string): Promise<void> {
+// Returns the fully-loaded AuthUser when Supabase creates a session immediately
+// (email confirmation disabled). Returns null when email confirmation is required
+// so the caller can redirect to the login page instead.
+export async function signUp(username: string, password: string): Promise<AuthUser | null> {
   const sb = getSupabaseClient()
   const email = buildEmailFromUsername(username)
 
-  const { error } = await sb.auth.signUp({ email, password, options: { data: { username } } })
+  const { data, error } = await sb.auth.signUp({ email, password, options: { data: { username } } })
   if (error) {
     if (error.message.includes('already registered')) throw new Error('Username is already taken')
     throw new Error(error.message)
   }
+
+  // Session is set immediately when email confirmation is disabled.
+  // Fetch the profile here so the caller can populate the auth store without
+  // relying on the SIGNED_IN event (which is ignored when AuthProvider has
+  // already resolved with null on this page load).
+  if (data.session && data.user) {
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single()
+    if (profile) {
+      ensureCodeExists().catch(() => {})
+      return { id: data.user.id, email: data.user.email!, profile: profile as Profile }
+    }
+  }
+
+  return null
 }
 
 export async function signOut(): Promise<void> {
