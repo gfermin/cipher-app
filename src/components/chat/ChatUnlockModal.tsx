@@ -3,43 +3,19 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUIStore } from '@/stores/uiStore'
 import { verifyUserVaultCode, hasUserVaultCode } from '@/services/vaultService'
-import { verifyAccountPassword } from '@/services/authService'
 
 const PIN_LEN = 6
-const SESSION_TTL_MS = 5 * 60 * 1000
-const MAX_PW_ATTEMPTS = 5
-
-type Step = 'password' | 'code'
 
 interface Props {
   chatId: string
   onClose: () => void
+  onUnlocked?: () => void
 }
 
-export function ChatUnlockModal({ chatId, onClose }: Props) {
+export function ChatUnlockModal({ chatId, onClose, onUnlocked }: Props) {
   const router = useRouter()
-  const {
-    unlockChat,
-    setPendingVaultSetupChatId,
-    chatLockSession,
-    setChatLockSession,
-  } = useUIStore()
+  const { unlockChat, setPendingVaultSetupChatId } = useUIStore()
 
-  function getInitialStep(): Step {
-    if (chatLockSession && Date.now() - chatLockSession.verifiedAt < SESSION_TTL_MS) return 'code'
-    return 'password'
-  }
-
-  const [step, setStep] = useState<Step>(getInitialStep)
-
-  // Step 1 — account password
-  const [password, setPassword] = useState('')
-  const [pwError, setPwError] = useState<string | null>(null)
-  const [pwChecking, setPwChecking] = useState(false)
-  const [pwAttempts, setPwAttempts] = useState(0)
-  const pwInputRef = useRef<HTMLInputElement>(null)
-
-  // Step 2 — vault code
   const [digits, setDigits] = useState<string[]>(Array(PIN_LEN).fill(''))
   const [codeError, setCodeError] = useState<string | null>(null)
   const [shaking, setShaking] = useState(false)
@@ -47,19 +23,10 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
   // null = loading, false = code exists, true = no code set
   const [noCode, setNoCode] = useState<boolean | null>(null)
   const pinRefs = useRef<(HTMLInputElement | null)[]>([])
-
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  // Auto-focus on step entry
+  // Check vault code existence on mount and focus first input
   useEffect(() => {
-    if (step === 'password') {
-      setTimeout(() => pwInputRef.current?.focus(), 60)
-    }
-  }, [step])
-
-  // Check vault code existence when entering Step 2
-  useEffect(() => {
-    if (step !== 'code') return
     hasUserVaultCode(chatId)
       .then((exists) => {
         setNoCode(!exists)
@@ -69,7 +36,7 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
         setNoCode(false)
         setTimeout(() => pinRefs.current[0]?.focus(), 60)
       })
-  }, [chatId, step])
+  }, [chatId])
 
   // Focus trap + Escape
   useEffect(() => {
@@ -97,29 +64,6 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
     setShaking(true)
     setTimeout(() => setShaking(false), 350)
   }
-
-  // ── Step 1: Account password ────────────────────────────────────────────────
-
-  async function handlePasswordSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!password.trim() || pwChecking || pwAttempts >= MAX_PW_ATTEMPTS) return
-    setPwChecking(true)
-    setPwError(null)
-    const ok = await verifyAccountPassword(password)
-    setPwChecking(false)
-    if (ok) {
-      setChatLockSession({ verifiedAt: Date.now() })
-      setStep('code')
-    } else {
-      const next = pwAttempts + 1
-      setPwAttempts(next)
-      setPassword('')
-      setPwError(next >= MAX_PW_ATTEMPTS ? 'Too many failed attempts.' : 'Incorrect password.')
-      setTimeout(() => pwInputRef.current?.focus(), 60)
-    }
-  }
-
-  // ── Step 2: Vault code ──────────────────────────────────────────────────────
 
   function handleDigitChange(idx: number, rawValue: string) {
     if (checking) return
@@ -166,6 +110,7 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
     }
 
     if (result === null) {
+      // Code was deleted between check and verify
       setNoCode(true)
       return
     }
@@ -178,16 +123,25 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
       return
     }
 
-    // Success
+    // Correct code — unlock only this chat temporarily
     unlockChat(chatId)
-    router.push(`/chats/${chatId}`)
-    onClose()
+    if (onUnlocked) {
+      onUnlocked()
+    } else {
+      router.push(`/chats/${chatId}`)
+      onClose()
+    }
   }
 
-  function handleOpenWithoutCode() {
+  function handleSetupVaultCode() {
+    setPendingVaultSetupChatId(chatId)
     unlockChat(chatId)
-    router.push(`/chats/${chatId}`)
-    onClose()
+    if (onUnlocked) {
+      onUnlocked()
+    } else {
+      router.push(`/chats/${chatId}`)
+      onClose()
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -197,127 +151,75 @@ export function ChatUnlockModal({ chatId, onClose }: Props) {
       <div className="sheet" role="dialog" aria-modal="true" aria-label="Unlock chat" ref={sheetRef}>
         <div className="sheet-handle" />
 
-        {/* ── Step 1: Verify identity ── */}
-        {step === 'password' && (
-          <>
-            <div className="sheet-title">Verify identity</div>
-            <div className="sheet-sub">
-              Enter your account password to access this chat.
-            </div>
+        {/* Loading — checking if vault code exists */}
+        {noCode === null && (
+          <div style={{ textAlign: 'center', padding: 'var(--sp-8) 0' }}>
+            <div className="sheet-spinner" />
+          </div>
+        )}
 
-            {pwError && (
+        {/* Vault code exists — show PIN input */}
+        {noCode === false && (
+          <>
+            <div className="sheet-title">Enter lock code</div>
+            <div className="sheet-sub">Enter your 6-digit lock code to open this chat.</div>
+
+            {codeError && (
               <div className="sheet-validation-msg err" role="alert" style={{ textAlign: 'center', marginBottom: 'var(--sp-4)' }}>
-                {pwError}
+                {codeError}
               </div>
             )}
 
-            <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-              <input
-                ref={pwInputRef}
-                className={`sheet-input${pwError ? ' error' : ''}`}
-                type="password"
-                placeholder="Account password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setPwError(null) }}
-                disabled={pwChecking || pwAttempts >= MAX_PW_ATTEMPTS}
-                autoComplete="current-password"
-                aria-label="Account password"
-              />
-              <div className="sheet-actions" style={{ marginTop: 'var(--sp-2)' }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={onClose}
-                  disabled={pwChecking}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="auth-btn"
-                  style={{ marginTop: 0 }}
-                  disabled={!password.trim() || pwChecking || pwAttempts >= MAX_PW_ATTEMPTS}
-                >
-                  {pwChecking
-                    ? <span className="sheet-spinner" style={{ margin: '0 auto', display: 'block' }} />
-                    : 'Verify'}
-                </button>
+            <div className="vault-pin-group">
+              <div className="vault-pin-label">Lock code</div>
+              <div className={`vault-pin-row${shaking ? ' vault-pin-row--shake' : ''}`}>
+                {digits.map((d, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { pinRefs.current[i] = el }}
+                    className={`vault-pin-box${checking ? ' vault-pin-box--done' : ''}`}
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={d}
+                    onChange={(e) => handleDigitChange(i, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, i)}
+                    onPaste={handlePaste}
+                    aria-label={`Lock code digit ${i + 1} of ${PIN_LEN}`}
+                    disabled={checking}
+                    autoComplete="off"
+                  />
+                ))}
               </div>
-            </form>
+            </div>
+
+            <div className="sheet-actions" style={{ marginTop: 'var(--sp-5)' }}>
+              <button className="btn-secondary" onClick={onClose} disabled={checking}>
+                Cancel
+              </button>
+            </div>
           </>
         )}
 
-        {/* ── Step 2: Vault code ── */}
-        {step === 'code' && (
+        {/* No vault code set for this chat */}
+        {noCode === true && (
           <>
-            {noCode === null && (
-              <div style={{ textAlign: 'center', padding: 'var(--sp-8) 0' }}>
-                <div className="sheet-spinner" />
-              </div>
-            )}
-
-            {noCode === false && (
-              <>
-                <div className="sheet-title">Enter lock code</div>
-                <div className="sheet-sub">Enter your 6-digit vault code to open this chat.</div>
-
-                {codeError && (
-                  <div className="sheet-validation-msg err" role="alert" style={{ textAlign: 'center', marginBottom: 'var(--sp-4)' }}>
-                    {codeError}
-                  </div>
-                )}
-
-                <div className="vault-pin-group">
-                  <div className="vault-pin-label">Lock code</div>
-                  <div className={`vault-pin-row${shaking ? ' vault-pin-row--shake' : ''}`}>
-                    {digits.map((d, i) => (
-                      <input
-                        key={i}
-                        ref={(el) => { pinRefs.current[i] = el }}
-                        className={`vault-pin-box${checking ? ' vault-pin-box--done' : ''}`}
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={d}
-                        onChange={(e) => handleDigitChange(i, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, i)}
-                        onPaste={handlePaste}
-                        aria-label={`Lock code digit ${i + 1} of ${PIN_LEN}`}
-                        disabled={checking}
-                        autoComplete="off"
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="sheet-actions" style={{ marginTop: 'var(--sp-5)' }}>
-                  <button className="btn-secondary" onClick={onClose} disabled={checking}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-
-            {noCode === true && (
-              <>
-                <div className="sheet-title">No lock code set</div>
-                <div className="sheet-sub">
-                  Set up a vault code to enable locking for this chat.
-                </div>
-                <div className="sheet-actions" style={{ marginTop: 'var(--sp-5)' }}>
-                  <button className="btn-secondary" onClick={onClose}>
-                    Cancel
-                  </button>
-                  <button
-                    className="auth-btn"
-                    onClick={() => { setPendingVaultSetupChatId(chatId); handleOpenWithoutCode() }}
-                    style={{ marginTop: 0 }}
-                  >
-                    Set up vault code
-                  </button>
-                </div>
-              </>
-            )}
+            <div className="sheet-title">No lock code set</div>
+            <div className="sheet-sub">
+              Set up a vault code to enable locking for this chat.
+            </div>
+            <div className="sheet-actions" style={{ marginTop: 'var(--sp-5)' }}>
+              <button className="btn-secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                className="auth-btn"
+                onClick={handleSetupVaultCode}
+                style={{ marginTop: 0 }}
+              >
+                Set up vault code
+              </button>
+            </div>
           </>
         )}
       </div>

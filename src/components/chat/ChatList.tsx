@@ -15,7 +15,7 @@ export function ChatList() {
   const router = useRouter()
   const { user } = useAuthStore()
   const { chats, setChats, activeChatId } = useChatStore()
-  const { newChatId, chatLockEnabled, setChatLockEnabled, lockAllChats, lockChat, lockedChats } = useUIStore()
+  const { newChatId, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats } = useUIStore()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
@@ -64,12 +64,6 @@ export function ChatList() {
     }
   }
 
-  function handleSearchFocus() {
-    if (chatLockEnabled && activeChatId) {
-      lockChat(activeChatId)
-    }
-  }
-
   const filtered = search
     ? chats.filter((c) =>
         (c.otherUser.display_name ?? c.otherUser.username)
@@ -94,7 +88,6 @@ export function ChatList() {
             const val = e.target.value
             setSearch(val)
           }}
-            onFocus={handleSearchFocus}
             autoComplete="off"
           />
         </div>
