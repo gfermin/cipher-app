@@ -34,6 +34,4 @@ export default withSentryConfig(nextConfig, {
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
   // Automatically tree-shake Sentry logger statements
   disableLogger: true,
-  // Tunnel Sentry requests through our domain to avoid ad-blockers
-  tunnelRoute: '/monitoring',
 })
