@@ -35,9 +35,6 @@ async function hydrateChatIds(userId: string, chatIds: string[]): Promise<ChatWi
       .from('chat_user_preferences').select('*')
       .eq('chat_id', rawChat.id).eq('user_id', userId).maybeSingle()
 
-    const { data: vault } = await sb
-      .from('chat_vaults').select('id').eq('chat_id', rawChat.id).maybeSingle()
-
     results.push({
       ...rawChat,
       participants: profileList,
@@ -45,7 +42,6 @@ async function hydrateChatIds(userId: string, chatIds: string[]): Promise<ChatWi
       unreadCount: unreadCount ?? 0,
       otherUser,
       myPreferences: myPrefs ?? null,
-      hasVault: !!vault,
     })
   }
 

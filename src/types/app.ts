@@ -21,7 +21,6 @@ export interface ChatWithParticipants extends Chat {
   unreadCount: number
   otherUser: Profile
   myPreferences: ChatUserPreferences | null
-  hasVault: boolean
 }
 
 export interface MessageWithSender extends Message {
