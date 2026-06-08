@@ -11,4 +11,6 @@ export interface MediaProvider {
   deleteImage(publicId: string): Promise<void>
   /** Reconstructs a delivery URL from a stored publicId or passes a full URL through unchanged. */
   getImageUrl(publicIdOrUrl: string): string
+  /** Adds provider-specific quality/format optimisations to a delivery URL. Non-matching URLs pass through unchanged. */
+  optimizeImageUrl(url: string): string
 }

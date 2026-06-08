@@ -379,6 +379,7 @@ export type Database = {
       mark_messages_read: { Args: { p_chat_id: string }; Returns: undefined }
       mint_contact_code: { Args: { p_user_id: string }; Returns: string }
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined }
+      revoke_vault_token: { Args: { p_chat_id: string }; Returns: undefined }
       set_user_vault_code: { Args: { p_chat_id: string; p_code: string }; Returns: undefined }
       set_vault_password: { Args: { p_chat_id: string; p_password: string }; Returns: undefined }
       store_code_encrypted: { Args: { p_encrypted: string; p_user_id: string }; Returns: undefined }
