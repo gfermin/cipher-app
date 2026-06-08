@@ -7,9 +7,8 @@ import { BackgroundPicker } from '@/components/settings/BackgroundPicker'
 import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
-import { deleteChat, updateChatTheme, setChatBackground, setChatHidden } from '@/services/chatService'
+import { deleteChat, updateChatTheme, setChatBackground, setChatHidden, updatePrivateAvatar } from '@/services/chatService'
 import { uploadAvatar } from '@/services/storageService'
-import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ChatWithParticipants } from '@/types/app'
 import { CHAT_THEMES } from '@/lib/constants'
 
@@ -33,15 +32,21 @@ export function ChatSettingsPanel({ chat, isHidden }: Props) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [hiding, setHiding] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
-  const supabase = getSupabaseClient()
 
   const { otherUser, myPreferences } = chat
 
   async function handleThemeChange(themeId: string) {
     const newTheme = themeId === 'default' ? null : themeId
-    await updateChatTheme(chat.id, newTheme).catch(() => {})
+    // Optimistic update — revert on failure
     updateThemeInStore(chat.id, newTheme)
+    try {
+      await updateChatTheme(chat.id, newTheme)
+    } catch {
+      showToast('Failed to update theme', 'error')
+      updateThemeInStore(chat.id, chat.custom_theme ?? null)
+    }
   }
 
   async function handleHideChat() {
@@ -62,9 +67,7 @@ export function ChatSettingsPanel({ chat, isHidden }: Props) {
     setHiding(true)
     try {
       await setChatHidden(chat.id, false)
-      // Add back to the regular chat list so the sidebar shows it immediately
       addChat(chat)
-      // Clear the hidden-mode flag so AppLayout treats this as a regular chat
       setActiveHiddenChat(null)
       setChatSettings(false)
       showToast('Conversation restored', 'success')
@@ -91,28 +94,38 @@ export function ChatSettingsPanel({ chat, isHidden }: Props) {
   }
 
   async function handlePrivateAvatar(file: File | undefined) {
-    if (!file || !user) return
+    if (!file || !user || avatarUploading) return
+    setAvatarUploading(true)
+    if (avatarRef.current) avatarRef.current.value = ''
     try {
       const { url } = await uploadAvatar(file, user.id, `private/${chat.id}`)
-      await supabase
-        .from('chat_user_preferences')
-        .upsert({ chat_id: chat.id, user_id: user.id, private_avatar: url })
+      await updatePrivateAvatar(chat.id, user.id, url)
       showToast('Private avatar updated', 'success')
     } catch {
       showToast('Failed to upload avatar', 'error')
+    } finally {
+      setAvatarUploading(false)
     }
   }
 
   async function handleSaveBackground(url: string) {
-    await setChatBackground(chat.id, url)
-    updateChatBackground(chat.id, url)
-    showToast('Background updated', 'success')
+    try {
+      await setChatBackground(chat.id, url)
+      updateChatBackground(chat.id, url)
+      showToast('Background updated', 'success')
+    } catch {
+      showToast('Failed to update background', 'error')
+    }
   }
 
   async function handleRemoveBackground() {
-    await setChatBackground(chat.id, null)
-    updateChatBackground(chat.id, null)
-    showToast('Background removed', 'success')
+    try {
+      await setChatBackground(chat.id, null)
+      updateChatBackground(chat.id, null)
+      showToast('Background removed', 'success')
+    } catch {
+      showToast('Failed to remove background', 'error')
+    }
   }
 
   const currentTheme = chat.custom_theme ?? 'default'
@@ -165,11 +178,21 @@ export function ChatSettingsPanel({ chat, isHidden }: Props) {
           <button
             className="vault-set-btn"
             onClick={() => avatarRef.current?.click()}
+            disabled={avatarUploading}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            Upload Private Avatar
+            {avatarUploading ? (
+              <>
+                <span className="btn-spinner btn-spinner--accent" />
+                Uploading…
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Upload Private Avatar
+              </>
+            )}
           </button>
         </div>
 

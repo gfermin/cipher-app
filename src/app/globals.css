@@ -2019,6 +2019,19 @@ a { text-decoration: none; color: inherit; }
 
 .code-copy-btn:hover { background: var(--bg-surface-3); color: var(--text-1); }
 
+.code-copy-btn--copied {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  animation: copy-pop 0.2s ease;
+}
+.code-copy-btn--copied:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+
+@keyframes copy-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
 .code-timer-bar {
   height: 3px;
   background: var(--border);
@@ -2379,6 +2392,8 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 768px) {
   .contacts-content { padding: var(--sp-4); }
   .sheet { max-width: 100%; padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom, 0px)); }
+  .settings-screen,
+  .contacts-screen { padding-bottom: 60px; }
 }
 
 /* ================================================================
@@ -2615,4 +2630,65 @@ a { text-decoration: none; color: inherit; }
 .toggle-switch input:disabled + .toggle-track {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* ================================================================
+   LOADING STATES
+   ================================================================ */
+
+/* Small inline spinner — sized for use inside flex buttons */
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+  flex-shrink: 0;
+}
+
+/* Accent-tinted variant for muted/secondary buttons (dark bg, accent text) */
+.btn-spinner--accent {
+  border-color: var(--border-accent);
+  border-top-color: var(--accent-light);
+}
+
+/* Auth button loading layout — adds flex centering when spinner is inside */
+.auth-btn--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+/* Avatar upload wrapper — enables overlay positioning */
+.avatar-upload-wrap {
+  position: relative;
+  display: inline-flex;
+  border-radius: 50%;
+}
+
+/* Translucent overlay shown over the avatar while uploading */
+.avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.52);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 150ms ease;
+  pointer-events: none;
+}
+
+.avatar-upload-overlay .btn-spinner {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+/* Disabled state for vault-set-btn (BackgroundPicker, ChatSettingsPanel) */
+.vault-set-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }

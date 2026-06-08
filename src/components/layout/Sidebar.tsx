@@ -1,5 +1,7 @@
 'use client'
+import { useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
+import { useUIStore } from '@/stores/uiStore'
 import { ChatList } from '@/components/chat/ChatList'
 import { HiddenChatBoard } from '@/components/chat/HiddenChatBoard'
 import { Avatar } from '@/components/ui/Avatar'
@@ -13,11 +15,31 @@ interface Props {
 
 export function Sidebar({ hidden, pendingCount, onSettingsClick, onContactsClick }: Props) {
   const { user } = useAuthStore()
+  const { openHiddenBoard } = useUIStore()
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function startLongPress() {
+    longPressTimer.current = setTimeout(() => { openHiddenBoard() }, 600)
+  }
+
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
 
   return (
     <div className={`sidebar ${hidden ? 'hidden' : ''}`}>
       <div className="sidebar-header">
-        <div className="sidebar-title">Cipher</div>
+        <div
+          className="sidebar-title"
+          onPointerDown={startLongPress}
+          onPointerUp={cancelLongPress}
+          onPointerLeave={cancelLongPress}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ userSelect: 'none' }}
+        >Cipher</div>
 
         {user && (
           <Avatar

@@ -15,9 +15,17 @@ self.addEventListener('activate', (e) => {
   self.clients.claim()
 })
 
+function isCacheable(url) {
+  // Only cache Next.js static assets — content-hashed, safe to store
+  return url.includes('/_next/static/')
+}
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return
   if (e.request.url.includes('supabase.co')) return
+  if (e.request.url.includes('cloudinary.com')) return
+
+  if (!isCacheable(e.request.url)) return
 
   e.respondWith(
     fetch(e.request)
