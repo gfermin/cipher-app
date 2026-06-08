@@ -85,8 +85,17 @@ export function RegisterForm() {
           />
         </div>
 
-        <button className="auth-btn" type="submit" disabled={loading}>
-          {loading ? 'Creating account…' : 'Create Account'}
+        <button
+          className={`auth-btn${loading ? ' auth-btn--loading' : ''}`}
+          type="submit"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <span className="btn-spinner" />
+              Creating account…
+            </>
+          ) : 'Create Account'}
         </button>
       </form>
 
