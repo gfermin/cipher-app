@@ -54,13 +54,29 @@ export function ChatPanel({ chatId, onBack }: Props) {
   const chatLockEnabledRef = useRef(chatLockEnabled)
   useEffect(() => { chatLockEnabledRef.current = chatLockEnabled }, [chatLockEnabled])
 
-  // Lock the chat when the user navigates away (chatId changes or component unmounts)
-  // Note: do NOT clear activeHiddenChat here — React 18 Strict Mode runs this cleanup
-  // on the first (fake) unmount, which would clear the data before the real mount renders.
-  // activeHiddenChat is cleared by AppLayout when returning to the chat list instead.
+  // Pending deferred lock — used to cancel a StrictMode fake-unmount re-lock.
+  // Shape: { timer, chatId } so we only cancel if the same chat is remounting.
+  const pendingLockRef = useRef<{ timer: ReturnType<typeof setTimeout>; chatId: string } | null>(null)
+
+  // Lock the chat when the user navigates away (chatId changes or component unmounts).
+  // Deferred by one tick so React 18 StrictMode's fake unmount→remount cycle can
+  // cancel the lock before it fires (real unmounts have no subsequent remount to cancel).
+  // Note: do NOT clear activeHiddenChat here — StrictMode also runs this cleanup on
+  // the first fake unmount; activeHiddenChat is cleared by AppLayout instead.
   useEffect(() => {
+    // Cancel a pending lock only when the same chatId is remounting (StrictMode cycle).
+    if (pendingLockRef.current?.chatId === chatId) {
+      clearTimeout(pendingLockRef.current.timer)
+      pendingLockRef.current = null
+    }
     return () => {
-      if (chatLockEnabledRef.current) lockChat(chatId)
+      if (!chatLockEnabledRef.current) return
+      const id = chatId
+      const timer = setTimeout(() => {
+        pendingLockRef.current = null
+        lockChat(id)
+      }, 0)
+      pendingLockRef.current = { timer, chatId: id }
     }
   }, [chatId, lockChat])
 
