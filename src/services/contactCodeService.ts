@@ -34,11 +34,15 @@ export async function getCodeMetadata(): Promise<CodeMetadata | null> {
 // ── Code Generation ───────────────────────────────────────────────
 
 // Called after sign-in. Generates (or recovers) the user's contact code.
+// Also regenerates if the existing code has already expired, since the
+// rotation cron may not have run yet.
 // Non-throwing: generation failure is logged but does not block sign-in.
 export async function ensureCodeExists(): Promise<void> {
   const meta = await getCodeMetadata()
-  // Already has a code with an encrypted blob — nothing to do
-  if (meta?.has_code && meta.is_encrypted) return
+  // Skip only when a code exists, has an encrypted blob, AND hasn't expired
+  if (meta?.has_code && meta.is_encrypted && meta.expires_at && new Date(meta.expires_at) > new Date()) {
+    return
+  }
 
   const token = await getBearerToken()
   const res = await callFunction('generate-contact-code', token)

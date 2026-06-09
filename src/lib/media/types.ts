@@ -13,4 +13,9 @@ export interface MediaProvider {
   getImageUrl(publicIdOrUrl: string): string
   /** Adds provider-specific quality/format optimisations to a delivery URL. Non-matching URLs pass through unchanged. */
   optimizeImageUrl(url: string): string
+  uploadVideo(file: File, folder: string, filename: string): Promise<UploadResult>
+  /** Constructs a playback URL for a stored video publicId. */
+  getVideoUrl(path: string): string
+  /** Constructs a Cloudinary auto-poster thumbnail URL for a stored video publicId. */
+  getVideoThumbnailUrl(path: string): string
 }
