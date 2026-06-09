@@ -11,12 +11,14 @@ export async function POST(request: Request) {
   }
 
   let public_id: string
+  let resource_type: 'image' | 'video' = 'image'
   try {
-    const body = await request.json() as { public_id?: unknown }
+    const body = await request.json() as { public_id?: unknown; resource_type?: unknown }
     if (!body.public_id || typeof body.public_id !== 'string') {
       return NextResponse.json({ error: 'Missing public_id' }, { status: 400 })
     }
     public_id = body.public_id
+    if (body.resource_type === 'video') resource_type = 'video'
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
   form.append('signature', signature)
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
+    `https://api.cloudinary.com/v1_1/${cloudName}/${resource_type}/destroy`,
     { method: 'POST', body: form }
   )
 

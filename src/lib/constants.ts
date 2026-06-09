@@ -29,6 +29,7 @@ export const CHAT_THEMES = [
 export const CLOUDINARY_FOLDERS = {
   AVATARS: 'cipher/avatars',
   CHAT_IMAGES: 'cipher/chat-images',
+  CHAT_VIDEOS: 'cipher/chat-videos',
   BACKGROUNDS: 'cipher/backgrounds',
 } as const
 

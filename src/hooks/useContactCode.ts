@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { getCodeMetadata, revealCode } from '@/services/contactCodeService'
+import { getCodeMetadata, revealCode, ensureCodeExists } from '@/services/contactCodeService'
 import type { CodeMetadata } from '@/types/app'
 
 export type RevealPhase = 'masked' | 'entering' | 'revealing' | 'revealed' | 'error'
@@ -24,7 +24,19 @@ export function useContactCode() {
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout>   | null>(null)
 
   useEffect(() => {
-    getCodeMetadata().then(setMetadata).catch(() => {})
+    async function init() {
+      const meta = await getCodeMetadata()
+      // If the code is already expired, regenerate before setting metadata
+      // so the UI reflects a fresh code rather than an expired one.
+      if (meta?.has_code && meta.expires_at && new Date(meta.expires_at) <= new Date()) {
+        try { await ensureCodeExists() } catch {}
+        const refreshed = await getCodeMetadata()
+        setMetadata(refreshed)
+      } else {
+        setMetadata(meta)
+      }
+    }
+    init().catch(() => {})
   }, [])
 
   // When metadata loads (or changes), set a timeout to fire exactly when the
