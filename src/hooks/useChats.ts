@@ -4,10 +4,11 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { getChats } from '@/services/chatService'
+import type { Message } from '@/types/app'
 
 export function useChats() {
   const { user } = useAuthStore()
-  const { setChats, chats } = useChatStore()
+  const { setChats, chats, updateLastMessage } = useChatStore()
 
   useEffect(() => {
     if (!user) return
@@ -20,7 +21,8 @@ export function useChats() {
     return () => { mounted = false }
   }, [user, setChats])
 
-  // Re-fetch chat list when any message is inserted in a chat the user participates in
+  // Update the last-message preview for the affected chat on every new message INSERT.
+  // Targeted store mutation avoids a full getChats() reload (which was O(N×5) DB queries).
   useEffect(() => {
     if (!user) return
     const supabase = getSupabaseClient()
@@ -30,14 +32,16 @@ export function useChats() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => {
-          getChats(user.id).then(setChats).catch(() => {})
+        (payload) => {
+          const msg = payload.new as Message
+          const knownChat = useChatStore.getState().chats.some((c) => c.id === msg.chat_id)
+          if (knownChat) updateLastMessage(msg.chat_id, msg)
         }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [user, setChats])
+  }, [user, updateLastMessage])
 
   return { chats }
 }

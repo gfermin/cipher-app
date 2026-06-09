@@ -234,7 +234,7 @@ export type Database = {
           is_vaulted: boolean
           read_by: string[]
           sender_id: string
-          type: 'text' | 'image' | 'deleted'
+          type: 'text' | 'image' | 'video' | 'deleted'
         }
         Insert: {
           chat_id: string
@@ -247,7 +247,7 @@ export type Database = {
           is_vaulted?: boolean
           read_by?: string[]
           sender_id: string
-          type?: 'text' | 'image' | 'deleted'
+          type?: 'text' | 'image' | 'video' | 'deleted'
         }
         Update: {
           chat_id?: string
@@ -260,7 +260,7 @@ export type Database = {
           is_vaulted?: boolean
           read_by?: string[]
           sender_id?: string
-          type?: 'text' | 'image' | 'deleted'
+          type?: 'text' | 'image' | 'video' | 'deleted'
         }
         Relationships: []
       }
@@ -362,7 +362,7 @@ export type Database = {
         Args: { p_chat_id: string; p_token: string }
         Returns: {
           id: string; chat_id: string; sender_id: string
-          type: 'text' | 'image' | 'deleted'; content: string | null
+          type: 'text' | 'image' | 'video' | 'deleted'; content: string | null
           image_url: string | null; image_path: string | null
           is_vaulted: boolean; is_deleted: boolean; read_by: string[]; created_at: string
         }[]
@@ -379,10 +379,12 @@ export type Database = {
       mark_messages_read: { Args: { p_chat_id: string }; Returns: undefined }
       mint_contact_code: { Args: { p_user_id: string }; Returns: string }
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined }
+      revoke_vault_token: { Args: { p_chat_id: string }; Returns: undefined }
       set_user_vault_code: { Args: { p_chat_id: string; p_code: string }; Returns: undefined }
       set_vault_password: { Args: { p_chat_id: string; p_password: string }; Returns: undefined }
       store_code_encrypted: { Args: { p_encrypted: string; p_user_id: string }; Returns: undefined }
       unblock_user: { Args: { p_blocked_id: string }; Returns: undefined }
+      vault_chat_media: { Args: { p_chat_id: string }; Returns: number }
       vault_chat_images: { Args: { p_chat_id: string }; Returns: number }
       // Returns TEXT: UUID token string (success), '' (wrong code), NULL (no code set)
       // Raises P0001 'vault_rate_limited' after 5 attempts / 60 s

@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useUIStore } from '@/stores/uiStore'
 import { verifyUserVaultCode } from '@/services/vaultService'
-import { vaultChatImages } from '@/services/messageService'
-import { VAULT_PASSWORD_PATTERN } from '@/lib/constants'
+import { vaultChatMedia } from '@/services/messageService'
+import { getSupabaseClient } from '@/lib/supabase/client'
 
 export function useVault() {
   const { vault, setVault, showToast } = useUIStore()
@@ -12,7 +12,7 @@ export function useVault() {
 
   const tryUnlockWithInput = useCallback(
     async (input: string, chatId: string): Promise<boolean> => {
-      if (!VAULT_PASSWORD_PATTERN.test(input)) return false
+      if (!/^\d{6}$/.test(input)) return false
 
       // Client-side gate: mirrors the server cooldown so the user
       // doesn't need to wait for a round-trip to see the toast again.
@@ -57,6 +57,10 @@ export function useVault() {
   )
 
   const lockVault = useCallback(() => {
+    const { vault } = useUIStore.getState()
+    if (vault.chatId) {
+      Promise.resolve(getSupabaseClient().rpc('revoke_vault_token', { p_chat_id: vault.chatId })).catch(() => {})
+    }
     setVault({ isUnlocked: false, chatId: null, vaultToken: null })
   }, [setVault])
 
@@ -76,16 +80,16 @@ export function useAutoVault(chatId: string) {
 
   // Best-effort vault on browser close — beforeunload is unreliable on mobile
   useEffect(() => {
-    function handleBeforeUnload() { vaultChatImages(chatId) }
+    function handleBeforeUnload() { vaultChatMedia(chatId) }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [chatId])
 
-  // Vault images on unmount (navigation away from chat)
+  // Vault media on unmount (navigation away from chat)
   useEffect(() => {
     return () => {
-      vaultChatImages(chatId).then((count) => {
-        if (count > 0) showToast('Images vaulted', 'success')
+      vaultChatMedia(chatId).then((count) => {
+        if (count > 0) showToast('Media vaulted', 'success')
       }).catch(() => {})
     }
   }, [chatId, showToast])

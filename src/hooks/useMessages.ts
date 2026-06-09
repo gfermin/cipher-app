@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { getMessages, getMessagesBefore, getMessagesAfter, setTyping, clearTyping } from '@/services/messageService'
+import { useUIStore } from '@/stores/uiStore'
 import { TYPING_DEBOUNCE_MS } from '@/lib/constants'
 import type { MessageWithSender } from '@/types/app'
 
@@ -71,7 +72,8 @@ export function useMessages(chatId: string | null) {
             created_at: '',
             updated_at: '',
           }
-          addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender)
+          const isLocked = useUIStore.getState().lockedChats.has(chatId)
+          addMessage(chatId, { ...payload.new, sender } as unknown as MessageWithSender, isLocked)
         }
       )
       .on(

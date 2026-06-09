@@ -10,6 +10,15 @@ export async function uploadChatImage(
   return mediaProvider.uploadImage(file, folder, String(Date.now()))
 }
 
+export async function uploadChatVideo(
+  file: File,
+  chatId: string,
+  userId: string
+): Promise<{ url: string; path: string }> {
+  const folder = `${CLOUDINARY_FOLDERS.CHAT_VIDEOS}/${chatId}/${userId}`
+  return mediaProvider.uploadVideo(file, folder, String(Date.now()))
+}
+
 /** Returns a delivery URL from a stored public_id or passes a full URL through unchanged. */
 export function getImageUrl(publicIdOrUrl: string): string {
   return mediaProvider.getImageUrl(publicIdOrUrl)
@@ -36,4 +45,8 @@ export async function uploadBackground(
 
 export async function deleteFile(_bucket: string, path: string): Promise<void> {
   return mediaProvider.deleteImage(path)
+}
+
+export function optimizeImageUrl(url: string): string {
+  return mediaProvider.optimizeImageUrl(url)
 }

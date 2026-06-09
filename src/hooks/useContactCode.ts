@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { getCodeMetadata, revealCode } from '@/services/contactCodeService'
+import { getCodeMetadata, revealCode, ensureCodeExists } from '@/services/contactCodeService'
 import type { CodeMetadata } from '@/types/app'
 
 export type RevealPhase = 'masked' | 'entering' | 'revealing' | 'revealed' | 'error'
@@ -17,11 +17,26 @@ export function useContactCode() {
   // True for 2s after the code rotates while the panel is open — drives pulse animation.
   const [rotated, setRotated] = useState(false)
 
+  const [copied, setCopied] = useState(false)
+
   const timerRef       = useRef<ReturnType<typeof setInterval>  | null>(null)
   const rotatedFlagRef = useRef<ReturnType<typeof setTimeout>   | null>(null)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout>   | null>(null)
 
   useEffect(() => {
-    getCodeMetadata().then(setMetadata).catch(() => {})
+    async function init() {
+      const meta = await getCodeMetadata()
+      // If the code is already expired, regenerate before setting metadata
+      // so the UI reflects a fresh code rather than an expired one.
+      if (meta?.has_code && meta.expires_at && new Date(meta.expires_at) <= new Date()) {
+        try { await ensureCodeExists() } catch {}
+        const refreshed = await getCodeMetadata()
+        setMetadata(refreshed)
+      } else {
+        setMetadata(meta)
+      }
+    }
+    init().catch(() => {})
   }, [])
 
   // When metadata loads (or changes), set a timeout to fire exactly when the
@@ -62,6 +77,7 @@ export function useContactCode() {
     return () => {
       if (timerRef.current)       clearInterval(timerRef.current)
       if (rotatedFlagRef.current) clearTimeout(rotatedFlagRef.current)
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
     }
   }, [])
 
@@ -125,7 +141,15 @@ export function useContactCode() {
   }
 
   function copy() {
-    if (code) navigator.clipboard.writeText(code).catch(() => {})
+    if (!code) return
+    navigator.clipboard.writeText(code).then(() => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+      setCopied(true)
+      copiedTimerRef.current = setTimeout(() => {
+        setCopied(false)
+        copiedTimerRef.current = null
+      }, 1500)
+    }).catch(() => {})
   }
 
   return {
@@ -137,6 +161,7 @@ export function useContactCode() {
     errorMsg,
     secondsLeft,
     rotated,
+    copied,
     beginReveal,
     cancelReveal,
     submitReveal,

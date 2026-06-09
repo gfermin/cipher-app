@@ -1061,6 +1061,60 @@ a { text-decoration: none; color: inherit; }
   cursor: pointer;
 }
 
+.bubble-video {
+  padding: var(--sp-1);
+  max-width: 280px;
+}
+
+.message-video-container {
+  border-radius: calc(var(--r-xl) - 4px);
+  overflow: hidden;
+  width: 100%;
+}
+
+.message-video {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.message-video-placeholder {
+  position: relative;
+  width: 100%;
+}
+
+.message-video-thumb-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.message-video-thumb-blank {
+  width: 100%;
+  height: 160px;
+  background: var(--bg-elevated);
+}
+
+.message-video-play-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.message-video-pending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
 .bubble-vault {
   display: flex;
   align-items: center;
@@ -1086,8 +1140,23 @@ a { text-decoration: none; color: inherit; }
   border-top: 1px solid var(--border);
   background: var(--bg-surface);
   display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.input-row {
+  display: flex;
   align-items: flex-end;
   gap: var(--sp-2);
+}
+
+.video-upload-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  padding: 0 var(--sp-1);
 }
 
 .input-wrap {
@@ -1334,6 +1403,42 @@ a { text-decoration: none; color: inherit; }
 }
 
 .vault-close-btn:hover { background: rgba(155,89,182,0.22); }
+
+.vault-video-thumb {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.vault-video-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.38);
+  transition: background var(--ease-fast);
+}
+
+.vault-item:hover .vault-video-play { background: rgba(0, 0, 0, 0.55); }
+
+.vault-video-player {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.96);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 200ms ease;
+}
+
+.vault-video-element {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: var(--r-md);
+  animation: scaleIn 280ms var(--ease-spring);
+}
 
 /* ================================================================
    VAULT SETUP MODAL — PIN INPUT
@@ -1855,7 +1960,7 @@ a { text-decoration: none; color: inherit; }
     z-index: var(--z-overlay);
   }
 
-  .sidebar.hidden { transform: translateX(-100%); }
+  .sidebar.hidden { transform: translateX(-100%); pointer-events: none; }
 
   .chat-panel {
     position: fixed;
@@ -1876,7 +1981,13 @@ a { text-decoration: none; color: inherit; }
 
   .vault-gallery-grid { grid-template-columns: repeat(3, 1fr); }
 
-  .messages-area { padding: var(--sp-3); }
+  .messages-area { padding: var(--sp-3); min-height: 60px; }
+
+  .message-textarea { max-height: 80px; }
+
+  .bubble-video { max-width: 240px; }
+  .message-video { max-height: 180px; }
+  .message-video-thumb-img { max-height: 180px; }
 }
 
 /* ================================================================
@@ -2018,6 +2129,19 @@ a { text-decoration: none; color: inherit; }
 }
 
 .code-copy-btn:hover { background: var(--bg-surface-3); color: var(--text-1); }
+
+.code-copy-btn--copied {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  animation: copy-pop 0.2s ease;
+}
+.code-copy-btn--copied:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+
+@keyframes copy-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
 
 .code-timer-bar {
   height: 3px;
@@ -2379,6 +2503,8 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 768px) {
   .contacts-content { padding: var(--sp-4); }
   .sheet { max-width: 100%; padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom, 0px)); }
+  .settings-screen,
+  .contacts-screen { padding-bottom: 60px; }
 }
 
 /* ================================================================
@@ -2615,4 +2741,65 @@ a { text-decoration: none; color: inherit; }
 .toggle-switch input:disabled + .toggle-track {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* ================================================================
+   LOADING STATES
+   ================================================================ */
+
+/* Small inline spinner — sized for use inside flex buttons */
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+  flex-shrink: 0;
+}
+
+/* Accent-tinted variant for muted/secondary buttons (dark bg, accent text) */
+.btn-spinner--accent {
+  border-color: var(--border-accent);
+  border-top-color: var(--accent-light);
+}
+
+/* Auth button loading layout — adds flex centering when spinner is inside */
+.auth-btn--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+/* Avatar upload wrapper — enables overlay positioning */
+.avatar-upload-wrap {
+  position: relative;
+  display: inline-flex;
+  border-radius: 50%;
+}
+
+/* Translucent overlay shown over the avatar while uploading */
+.avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.52);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 150ms ease;
+  pointer-events: none;
+}
+
+.avatar-upload-overlay .btn-spinner {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+/* Disabled state for vault-set-btn (BackgroundPicker, ChatSettingsPanel) */
+.vault-set-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }

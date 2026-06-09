@@ -1,7 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const AUTH_ROUTES = ['/login', '/register']
 const PUBLIC_ROUTES = ['/login', '/register']
 
 export async function middleware(request: NextRequest) {
@@ -33,7 +32,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (user && AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
+  if (user && PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL('/chats', request.url))
   }
 
