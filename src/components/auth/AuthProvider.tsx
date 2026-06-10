@@ -4,39 +4,30 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/authStore'
 import type { Profile } from '@/types/app'
 
-// Races a native Promise against a hard deadline.
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`auth_timeout_${ms}`)), ms)
-    ),
-  ])
+// Fetch the profile row with an 8 s hard timeout. Returns null on any failure
+// so the caller can decide how to recover (clear session, show error, etc.).
+async function fetchProfile(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  userId: string
+): Promise<Profile | null> {
+  try {
+    const result = await (Promise.race([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('profile_timeout')), 8000)
+      ),
+    ]) as unknown as Promise<{ data: Profile | null }>)
+    return result?.data ?? null
+  } catch {
+    return null
+  }
 }
 
-// Races a Supabase PostgREST PromiseLike against a hard deadline and returns
-// the `data` field. Using `as unknown as Promise<T>` because the untyped
-// Supabase client returns PostgrestBuilder<never> which isn't a native Promise.
-async function queryWithTimeout<T>(
-  thenable: PromiseLike<{ data: T | null }>,
-  ms: number
-): Promise<T | null> {
-  const result = await (Promise.race([
-    thenable,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`query_timeout_${ms}`)), ms)
-    ),
-  ]) as unknown as Promise<{ data: T | null }>)
-  return result.data
-}
-
-// Clears the Supabase auth session locally (no network call) then manually
-// removes all sb-*-auth-token cookies from document.cookie as a guaranteed
-// backstop so the Next.js middleware doesn't bounce the /login redirect back
-// to /chats. scope:'local' is instant (no server round-trip).
+// Wipes the local Supabase session without a network round-trip, then manually
+// expires any sb-*-auth-token cookie chunks so the Next.js middleware stops
+// seeing a "valid" session and bouncing /login back to /chats.
 async function clearSessionLocally(supabase: ReturnType<typeof getSupabaseClient>) {
   try { await supabase.auth.signOut({ scope: 'local' }) } catch {}
-  // Belt-and-suspenders: manually expire any remaining auth cookies.
   try {
     document.cookie.split(';').forEach((c) => {
       const name = c.trim().split('=')[0]
@@ -52,145 +43,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    // resolved is the single exit-point flag. Once true, every subsequent path
-    // (retries, auth events, failsafe) is a no-op — preventing double-updates
-    // and preventing the failsafe from signing out an already-initialized user.
-    let resolved = false
+    // Guards the failsafe — set to true once INITIAL_SESSION fires so we know
+    // initialization is complete regardless of whether auth succeeded or failed.
+    let initialized = false
     const supabase = getSupabaseClient()
-
-    function resolve(user: Parameters<typeof setUser>[0]) {
-      if (!mounted || resolved) return
-      resolved = true
-      setUser(user)
-      setLoading(false)
-    }
-
-    // Loads the profile row. On success calls resolve() and returns true.
-    // On any failure (network, RLS, missing row, timeout) returns false so
-    // the caller can retry or escalate. 8-second timeout prevents DB hangs.
-    async function loadProfile(userId: string, email: string): Promise<boolean> {
-      try {
-        const profile = await queryWithTimeout<Profile>(
-          supabase.from('profiles').select('*').eq('id', userId).single(),
-          8000
-        )
-        if (profile) {
-          resolve({ id: userId, email, profile })
-          return true
-        }
-      } catch {}
-      return false
-    }
-
-    // Primary initialization. getSession() awaits the Supabase client's internal
-    // initializePromise (which includes any in-progress token refresh). Time-boxed:
-    // a degraded-connection token-refresh HTTP call can hang indefinitely without
-    // the timeout. 10 s is generous for any realistic network condition.
-    async function initializeAuth(): Promise<void> {
-      try {
-        const { data: { session } } = await withTimeout(
-          supabase.auth.getSession(),
-          10000
-        )
-        if (!mounted) return
-
-        if (!session?.user) {
-          resolve(null)
-          return
-        }
-
-        // Attempt 1
-        const ok = await loadProfile(session.user.id, session.user.email!)
-        if (!mounted || ok) return
-
-        // 1.2 s retry — TOKEN_REFRESHED writes the new token before this fires
-        // in the race where getSession returned a session mid-refresh.
-        await new Promise<void>((r) => setTimeout(r, 1200))
-        if (!mounted) return
-
-        const retryOk = await loadProfile(session.user.id, session.user.email!)
-        if (!mounted || retryOk) return
-
-        // Both loads failed. Verify liveness then clear session to prevent the
-        // middleware bounce loop (middleware sees valid cookies → redirects /login
-        // back to /chats → infinite loading illusion).
-        const { data: { user: liveUser } } = await withTimeout(
-          supabase.auth.getUser(),
-          5000
-        )
-        if (!mounted) return
-
-        void liveUser
-        await clearSessionLocally(supabase)
-        resolve(null)
-      } catch {
-        resolve(null)
-      }
-    }
-
-    initializeAuth()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
-      if (event === 'SIGNED_IN') {
+      if (event === 'INITIAL_SESSION') {
+        // This is the definitive initialization event. Supabase fires it exactly
+        // once per page load after initializePromise resolves — which means
+        // _recoverAndRefresh() has already run and the session is up-to-date
+        // (tokens refreshed if they were near/past expiry). Using this event
+        // instead of getSession() eliminates the race condition where getSession()
+        // can time out mid-refresh, resolve(null) clears the Zustand user, and
+        // the middleware bounce loop creates an infinite-loading illusion.
+        initialized = true
+
         if (session?.user) {
-          // Do NOT go through resolve() here — it is guarded by the `resolved` flag
-          // and would be a no-op if AuthProvider already resolved with null on this
-          // page load (e.g. no session on /register page, then signUp() fires SIGNED_IN).
-          // Instead call setUser() directly so the auth state is ALWAYS updated on
-          // sign-in, regardless of prior initialization state.
-          try {
-            const profile = await queryWithTimeout<Profile>(
-              supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-              8000
-            )
-            if (!mounted) return
-            if (profile) {
-              setUser({ id: session.user.id, email: session.user.email!, profile })
-              // Only stop the loading spinner if it hasn't been stopped yet.
-              if (!resolved) { resolved = true; setLoading(false) }
-            } else {
-              resolve(null)
-            }
-          } catch {
-            if (mounted) resolve(null)
+          const profile = await fetchProfile(supabase, session.user.id)
+          if (!mounted) return
+
+          if (profile) {
+            setUser({ id: session.user.id, email: session.user.email!, profile })
+            setLoading(false)
+          } else {
+            // Valid JWT but no profile row — orphaned auth account or DB issue.
+            // Clear the session so the middleware doesn't redirect /login → /chats
+            // in a bounce loop, then land the user on the login page cleanly.
+            await clearSessionLocally(supabase)
+            if (mounted) { setUser(null); setLoading(false) }
           }
         } else {
-          resolve(null)
-        }
-      } else if (event === 'TOKEN_REFRESHED') {
-        // Recovery path for expired-token-on-load race. Skip if already resolved.
-        if (session?.user && !resolved) {
-          try {
-            const profile = await queryWithTimeout<Profile>(
-              supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-              8000
-            )
-            if (mounted && profile) {
-              resolve({ id: session.user.id, email: session.user.email!, profile })
-            } else if (mounted) {
-              resolve(null)
-            }
-          } catch {
-            if (mounted) resolve(null)
-          }
+          // No session on this page load — user is unauthenticated.
+          setUser(null)
+          setLoading(false)
         }
       } else if (event === 'SIGNED_OUT') {
-        resolve(null)
+        // Covers explicit sign-out and expired refresh-token removal by auth-js.
+        setUser(null)
+        setLoading(false)
       }
+      // SIGNED_IN:      _recoverAndRefresh() fires this during initializePromise,
+      //                 BEFORE INITIAL_SESSION. LoginForm/RegisterForm call setUser()
+      //                 directly after sign-in. No action needed here.
+      // TOKEN_REFRESHED: AuthUser carries id/email/profile — no session tokens.
+      //                  The Supabase client manages token rotation internally.
+      //                  No state update needed.
     })
 
-    // Failsafe: only activates if resolved=false after 12 s — i.e. a genuine
-    // hang. Under normal conditions resolved=true well before 12 s, making this
-    // a guaranteed no-op. clearSessionLocally() cannot hang (no network call).
+    // Failsafe: if initializePromise hangs indefinitely (no network, Supabase Auth
+    // server unreachable), INITIAL_SESSION will never fire. After 15 s we give up,
+    // clear the session to prevent the middleware bounce, and unblock the UI.
+    // Under normal conditions initialized=true well before 15 s — this is a no-op.
     const failsafe = window.setTimeout(async () => {
-      if (!mounted || resolved) return
+      if (!mounted || initialized) return
       await clearSessionLocally(supabase)
-      resolve(null)
-    }, 12000)
+      if (mounted) { initialized = true; setUser(null); setLoading(false) }
+    }, 15000)
 
     return () => {
       mounted = false

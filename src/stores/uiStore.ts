@@ -11,6 +11,7 @@ interface UIState {
   isMobileChatOpen: boolean
   newChatId: string | null
   chatLockEnabled: boolean
+  chatLockInitialized: boolean
   lockedChats: Set<string>
   hiddenBoardOpen: boolean
   pendingVaultSetupChatId: string | null
@@ -18,6 +19,7 @@ interface UIState {
 
   showToast: (message: string, type?: Toast['type']) => void
   setChatLockSession: (session: { verifiedAt: number } | null) => void
+  setChatLockInitialized: (initialized: boolean) => void
   dismissToast: (id: string) => void
   setVault: (state: Partial<VaultState>) => void
   setChatSettings: (open: boolean) => void
@@ -41,6 +43,7 @@ export const useUIStore = create<UIState>((set) => ({
   isMobileChatOpen: false,
   newChatId: null,
   chatLockEnabled: false,
+  chatLockInitialized: false,
   lockedChats: new Set<string>(),
   hiddenBoardOpen: false,
   pendingVaultSetupChatId: null,
@@ -89,4 +92,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeHiddenBoard: () => set({ hiddenBoardOpen: false }),
   setPendingVaultSetupChatId: (pendingVaultSetupChatId) => set({ pendingVaultSetupChatId }),
   setChatLockSession: (chatLockSession) => set({ chatLockSession }),
+
+  setChatLockInitialized: (chatLockInitialized) => set({ chatLockInitialized }),
 }))
