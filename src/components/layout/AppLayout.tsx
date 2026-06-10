@@ -29,7 +29,7 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
   const { chats, activeChatId, setActiveChat, activeHiddenChat, setActiveHiddenChat } = useChatStore()
-  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats } = useUIStore()
+  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats, chatLockInitialized, setChatLockInitialized } = useUIStore()
   const { pendingRequests } = useContactStore()
 
   const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
@@ -66,12 +66,17 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
 
   // Sync chat lock preference from the persisted DB profile on every app load.
   // uiStore defaults chatLockEnabled to false; without this effect it resets on refresh.
+  // chatLockInitialized guards against re-locking chats when AppLayout remounts on
+  // navigation (e.g. /chats → /chats/[id]), which would undo a just-completed unlock.
   useEffect(() => {
     if (!user?.profile.chat_lock_enabled) return
     setChatLockEnabled(true)
-    if (chats.length > 0) lockAllChats(chats.map((c) => c.id))
+    if (chats.length > 0 && !chatLockInitialized) {
+      lockAllChats(chats.map((c) => c.id))
+      setChatLockInitialized(true)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, chats.length > 0])
+  }, [user?.id, chats.length > 0, chatLockInitialized])
 
   useEffect(() => {
     function handleVisibility() {

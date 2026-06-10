@@ -60,6 +60,16 @@ export async function sendImageMessage(chatId: string, senderId: string, imageUr
   return enrichMessage(data)
 }
 
+export async function sendVideoMessage(chatId: string, senderId: string, videoUrl: string, videoPath: string): Promise<MessageWithSender> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb
+    .from('messages')
+    .insert({ chat_id: chatId, sender_id: senderId, type: 'video', image_url: videoUrl, image_path: videoPath })
+    .select().single()
+  if (error || !data) throw new Error(error?.message ?? 'Failed to send video')
+  return enrichMessage(data)
+}
+
 export async function deleteMessage(messageId: string): Promise<void> {
   const sb = getSupabaseClient()
   const { error } = await sb
@@ -82,6 +92,14 @@ export async function getVaultedMessages(chatId: string, token: string): Promise
 export async function vaultChatImages(chatId: string): Promise<number> {
   const sb = getSupabaseClient()
   const { data } = await sb.rpc('vault_chat_images', { p_chat_id: chatId })
+  return typeof data === 'number' ? data : 0
+}
+
+// Vaults all non-vaulted image and video messages for the given chat.
+// Returns the total count of items vaulted.
+export async function vaultChatMedia(chatId: string): Promise<number> {
+  const sb = getSupabaseClient()
+  const { data } = await sb.rpc('vault_chat_media', { p_chat_id: chatId })
   return typeof data === 'number' ? data : 0
 }
 

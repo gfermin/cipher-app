@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useUIStore } from '@/stores/uiStore'
 import { verifyUserVaultCode } from '@/services/vaultService'
-import { vaultChatImages } from '@/services/messageService'
+import { vaultChatMedia } from '@/services/messageService'
 import { getSupabaseClient } from '@/lib/supabase/client'
 
 export function useVault() {
@@ -80,16 +80,16 @@ export function useAutoVault(chatId: string) {
 
   // Best-effort vault on browser close — beforeunload is unreliable on mobile
   useEffect(() => {
-    function handleBeforeUnload() { vaultChatImages(chatId) }
+    function handleBeforeUnload() { vaultChatMedia(chatId) }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [chatId])
 
-  // Vault images on unmount (navigation away from chat)
+  // Vault media on unmount (navigation away from chat)
   useEffect(() => {
     return () => {
-      vaultChatImages(chatId).then((count) => {
-        if (count > 0) showToast('Images vaulted', 'success')
+      vaultChatMedia(chatId).then((count) => {
+        if (count > 0) showToast('Media vaulted', 'success')
       }).catch(() => {})
     }
   }, [chatId, showToast])

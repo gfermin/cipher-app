@@ -8,6 +8,10 @@ function uploadPreset(): string {
   return process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ''
 }
 
+function videoUploadPreset(): string {
+  return process.env.NEXT_PUBLIC_CLOUDINARY_VIDEO_UPLOAD_PRESET ?? ''
+}
+
 export const cloudinaryProvider: MediaProvider = {
   async uploadImage(file: File, folder: string, filename: string): Promise<UploadResult> {
     if (!cloudName() || !uploadPreset()) {
@@ -30,18 +34,16 @@ export const cloudinaryProvider: MediaProvider = {
     }
 
     const data = await res.json() as { secure_url: string; public_id: string }
-    return {
-      url: data.secure_url,
-      path: data.public_id,
-    }
+    return { url: data.secure_url, path: data.public_id }
   },
 
   async deleteImage(publicId: string): Promise<void> {
     if (!publicId) return
+    const resourceType = publicId.includes('/chat-videos/') ? 'video' : 'image'
     const res = await fetch('/api/media/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ public_id: publicId }),
+      body: JSON.stringify({ public_id: publicId, resource_type: resourceType }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({})) as { error?: string }
@@ -57,6 +59,40 @@ export const cloudinaryProvider: MediaProvider = {
   optimizeImageUrl(url: string): string {
     if (!url.includes('res.cloudinary.com')) return url
     return url.replace('/upload/', '/upload/q_auto,f_auto/')
+  },
+
+  async uploadVideo(file: File, folder: string, filename: string): Promise<UploadResult> {
+    if (!cloudName() || !videoUploadPreset()) {
+      throw new Error('Cloudinary video is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_VIDEO_UPLOAD_PRESET.')
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', videoUploadPreset())
+    formData.append('public_id', `${folder}/${filename}`)
+
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName()}/video/upload`,
+      { method: 'POST', body: formData }
+    )
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
+      throw new Error(err.error?.message ?? 'Cloudinary video upload failed')
+    }
+
+    const data = await res.json() as { secure_url: string; public_id: string }
+    return { url: data.secure_url, path: data.public_id }
+  },
+
+  getVideoUrl(path: string): string {
+    if (path.startsWith('http')) return path
+    return `https://res.cloudinary.com/${cloudName()}/video/upload/${path}.mp4`
+  },
+
+  // so_auto = Cloudinary AI picks the best representative frame
+  getVideoThumbnailUrl(path: string): string {
+    return `https://res.cloudinary.com/${cloudName()}/video/upload/so_auto,f_jpg,w_400/${path}.jpg`
   },
 }
 

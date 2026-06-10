@@ -5,6 +5,7 @@ import { getVaultedMessages } from '@/services/messageService'
 import { deleteVaultImage } from '@/services/vaultService'
 import { useUIStore } from '@/stores/uiStore'
 import { useChatStore } from '@/stores/chatStore'
+import { mediaProvider } from '@/lib/media'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { DeleteModal } from '@/components/ui/DeleteModal'
 import { formatMessageTime } from '@/lib/utils'
@@ -22,6 +23,7 @@ export function VaultGallery({ chatId, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [deletingItem, setDeletingItem] = useState<MessageWithSender | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [videoViewerUrl, setVideoViewerUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!vault.vaultToken) { setLoading(false); return }
@@ -35,6 +37,19 @@ export function VaultGallery({ chatId, onClose }: Props) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [chatId, onClose, vault.vaultToken])
+
+  // Intercept Escape for the video player before the gallery Escape handler fires
+  useEffect(() => {
+    if (!videoViewerUrl) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation()
+        setVideoViewerUrl(null)
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [videoViewerUrl])
 
   // Realtime: remove items deleted by the other participant while gallery is open
   useEffect(() => {
@@ -67,6 +82,15 @@ export function VaultGallery({ chatId, onClose }: Props) {
     }
   }
 
+  const deleteIcon = (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>
+  )
+
   return (
     <>
       <div className="vault-gallery" role="region" aria-label="Vault gallery">
@@ -98,48 +122,105 @@ export function VaultGallery({ chatId, onClose }: Props) {
             <span style={{ fontSize: 'var(--text-sm)' }}>Vault is empty</span>
           </div>
         ) : (
-          <div className="vault-gallery-grid" role="list" aria-label="Vault photos">
-            {items.map((item, i) => (
-              <div
-                key={item.id}
-                className="vault-item"
-                role="listitem"
-                style={{ animationDelay: `${i * 80}ms` }}
-                onClick={() => item.image_url && setImageViewer(item.image_url)}
-                title={formatMessageTime(item.created_at)}
-                aria-label={`Vault photo from ${formatMessageTime(item.created_at)}`}
-              >
-                {item.image_url && (
-                  <Image
-                    src={item.image_url}
-                    alt="Vault photo"
-                    width={200}
-                    height={200}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                )}
-                <button
-                  className="vault-item-delete"
-                  onClick={(e) => { e.stopPropagation(); setDeletingItem(item) }}
-                  aria-label="Delete photo"
+          <div className="vault-gallery-grid" role="list" aria-label="Vault media">
+            {items.map((item, i) =>
+              item.type === 'video' ? (
+                <div
+                  key={item.id}
+                  className="vault-item"
+                  role="listitem"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                  onClick={() => item.image_url && setVideoViewerUrl(item.image_url)}
+                  title={formatMessageTime(item.created_at)}
+                  aria-label={`Vault video from ${formatMessageTime(item.created_at)}`}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                  </svg>
-                </button>
-              </div>
-            ))}
+                  <div className="vault-video-thumb">
+                    {item.image_path && (
+                      <Image
+                        src={mediaProvider.getVideoThumbnailUrl(item.image_path)}
+                        alt="Vault video thumbnail"
+                        width={200}
+                        height={200}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    )}
+                    <div className="vault-video-play" aria-hidden="true">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="white" stroke="none">
+                        <polygon points="6 3 20 12 6 21 6 3"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <button
+                    className="vault-item-delete"
+                    onClick={(e) => { e.stopPropagation(); setDeletingItem(item) }}
+                    aria-label="Delete video"
+                  >
+                    {deleteIcon}
+                  </button>
+                </div>
+              ) : (
+                <div
+                  key={item.id}
+                  className="vault-item"
+                  role="listitem"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                  onClick={() => item.image_url && setImageViewer(item.image_url)}
+                  title={formatMessageTime(item.created_at)}
+                  aria-label={`Vault photo from ${formatMessageTime(item.created_at)}`}
+                >
+                  {item.image_url && (
+                    <Image
+                      src={item.image_url}
+                      alt="Vault photo"
+                      width={200}
+                      height={200}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  )}
+                  <button
+                    className="vault-item-delete"
+                    onClick={(e) => { e.stopPropagation(); setDeletingItem(item) }}
+                    aria-label="Delete photo"
+                  >
+                    {deleteIcon}
+                  </button>
+                </div>
+              )
+            )}
           </div>
         )}
       </div>
 
+      {videoViewerUrl && (
+        <div className="vault-video-player" onClick={() => setVideoViewerUrl(null)}>
+          <button
+            className="image-viewer-close"
+            onClick={() => setVideoViewerUrl(null)}
+            aria-label="Close video"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+          <video
+            className="vault-video-element"
+            src={videoViewerUrl}
+            controls
+            playsInline
+            controlsList="nodownload"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {deletingItem && (
         <DeleteModal
-          title="Delete photo"
-          description="Delete this photo permanently? It cannot be recovered."
+          title={deletingItem.type === 'video' ? 'Delete video' : 'Delete photo'}
+          description={
+            deletingItem.type === 'video'
+              ? 'Delete this video permanently? It cannot be recovered.'
+              : 'Delete this photo permanently? It cannot be recovered.'
+          }
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeletingItem(null)}
           loading={deleteLoading}
