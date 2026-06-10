@@ -15,7 +15,7 @@ export function ChatList() {
   const router = useRouter()
   const { user } = useAuthStore()
   const { chats, setChats, activeChatId } = useChatStore()
-  const { newChatId, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats } = useUIStore()
+  const { newChatId, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats, chatLockInitialized, setChatLockInitialized } = useUIStore()
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
@@ -30,14 +30,17 @@ export function ChatList() {
     getChats(user.id)
       .then((c) => {
         setChats(c)
-        // Initialize chat lock state from the user's persisted preference
+        // Initialize chat lock state from the user's persisted preference.
+        // chatLockInitialized guards against re-locking after a ChatList remount caused
+        // by navigation (e.g. /chats → /chats/[id]), which would undo a just-completed unlock.
         setChatLockEnabled(user.profile.chat_lock_enabled)
-        if (user.profile.chat_lock_enabled) {
+        if (user.profile.chat_lock_enabled && !chatLockInitialized) {
           lockAllChats(c.map((chat) => chat.id))
+          setChatLockInitialized(true)
         }
       })
       .finally(() => setLoading(false))
-  }, [user, setChats, setChatLockEnabled, lockAllChats])
+  }, [user, setChats, setChatLockEnabled, lockAllChats, chatLockInitialized, setChatLockInitialized])
 
   useEffect(() => {
     if (!search.trim() || !user) {
