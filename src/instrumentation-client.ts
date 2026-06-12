@@ -35,8 +35,8 @@ Sentry.init({
       }
     }
     // Scrub search RPC breadcrumbs that may have been captured before the hook ran
-    if (event.breadcrumbs?.values) {
-      event.breadcrumbs.values = event.breadcrumbs.values.filter((bc) => {
+    if (event.breadcrumbs) {
+      event.breadcrumbs = event.breadcrumbs.filter((bc) => {
         if (bc.type === 'http' && typeof bc.data?.url === 'string' && bc.data.url.includes('search_chat_messages')) return false
         return true
       })

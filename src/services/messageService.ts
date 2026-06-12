@@ -1,10 +1,13 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { MessageWithSender, Profile, Message } from '@/types/app'
 
-async function enrichMessage(msg: Message): Promise<MessageWithSender> {
+// RPC return types omit generated columns (content_tsv); accept a compatible superset/subset
+type MessageLike = Omit<Message, 'content_tsv'> & { content_tsv?: unknown }
+
+async function enrichMessage(msg: MessageLike): Promise<MessageWithSender> {
   const sb = getSupabaseClient()
   const { data: sender } = await sb.from('profiles').select('*').eq('id', msg.sender_id).single()
-  return { ...msg, sender: sender as Profile }
+  return { ...(msg as Message), sender: sender as Profile }
 }
 
 // Returns the newest 40 messages for the initial load, ordered oldest-first for display.
