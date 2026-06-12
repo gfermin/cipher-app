@@ -110,7 +110,16 @@ export function useMessages(chatId: string | null) {
         }
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           // Hard error: full refresh is safest.
-          getMessages(chatId).then((msgs) => setMessages(chatId, msgs)).catch(() => {})
+          getMessages(chatId)
+            .then((msgs) => {
+              setMessages(chatId, msgs)
+              // Re-run any active search — results are now stale after the full refresh.
+              const { chatSearch, triggerSearchReconnect } = useUIStore.getState()
+              if (chatSearch.isOpen && chatSearch.query.trim().length >= 2) {
+                triggerSearchReconnect()
+              }
+            })
+            .catch(() => {})
         }
       })
 
@@ -148,5 +157,5 @@ export function useMessages(chatId: string | null) {
     typingTimer.current = setTimeout(() => clearTyping(chatId, user.id), TYPING_DEBOUNCE_MS)
   }, [chatId, user])
 
-  return { messages: chatMessages, handleTyping, loadMoreMessages, hasMore }
+  return { messages: chatMessages, handleTyping, loadMoreMessages, hasMore, setHasMore }
 }

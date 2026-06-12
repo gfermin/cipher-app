@@ -90,12 +90,14 @@ function LazyVideo({ src, poster, className }: { src: string; poster?: string; c
 
 export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props) {
   const { setImageViewer } = useUIStore()
+  const highlightedMessageId = useUIStore((s) => s.chatSearch.highlightedMessageId)
   const isPending = message.id.startsWith('__temp_')
+  const isHighlighted = message.id === highlightedMessageId
 
   if (message.type === 'deleted') {
     return (
-      <div className={`message-wrap ${isOwn ? 'outgoing' : ''}`} role="listitem">
-        <div className={`bubble ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
+      <div id={`message-${message.id}`} className={`message-wrap ${isOwn ? 'outgoing' : ''}`} role="listitem">
+        <div className={`bubble ${isOwn ? 'bubble-out' : 'bubble-in'}${isHighlighted ? ' bubble-highlighted' : ''}`}>
           <span className="bubble-deleted">
             {isOwn ? 'You deleted this message' : 'This message was deleted'}
           </span>
@@ -109,11 +111,12 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
 
     return (
       <div
+        id={`message-${message.id}`}
         className={`message-wrap ${isOwn ? 'outgoing' : ''}`}
         role="listitem"
         aria-label={`${isOwn ? 'You' : message.sender?.display_name ?? message.sender?.username ?? 'Them'} sent a video at ${formatMessageTime(message.created_at)}`}
       >
-        <div className={`bubble bubble-video ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
+        <div className={`bubble bubble-video ${isOwn ? 'bubble-out' : 'bubble-in'}${isHighlighted ? ' bubble-highlighted' : ''}`}>
           {isPending ? (
             <div className="message-video-container">
               <div className="message-video-placeholder">
@@ -151,11 +154,12 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
 
     return (
       <div
+        id={`message-${message.id}`}
         className={`message-wrap ${isOwn ? 'outgoing' : ''}`}
         role="listitem"
         aria-label={`${isOwn ? 'You' : message.sender?.display_name ?? message.sender?.username ?? 'Them'} sent a photo at ${formatMessageTime(message.created_at)}`}
       >
-        <div className={`bubble bubble-image ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
+        <div className={`bubble bubble-image ${isOwn ? 'bubble-out' : 'bubble-in'}${isHighlighted ? ' bubble-highlighted' : ''}`}>
           {message.image_url ? (
             <div style={{ cursor: 'pointer' }} onClick={() => setImageViewer(message.image_url!)}>
               <Image
@@ -178,6 +182,7 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
 
   return (
     <div
+      id={`message-${message.id}`}
       className={`message-wrap ${isOwn ? 'outgoing' : ''}`}
       role="listitem"
       aria-label={`${isOwn ? 'You' : message.sender?.display_name ?? message.sender?.username ?? 'Them'}: ${message.content ?? ''} at ${formatMessageTime(message.created_at)}`}
@@ -185,7 +190,7 @@ export function MessageBubble({ message, isOwn, vaultUnlocked, onDelete }: Props
         if (isOwn && onDelete) { e.preventDefault(); onDelete(message.id) }
       }}
     >
-      <div className={`bubble ${isOwn ? 'bubble-out' : 'bubble-in'}`}>
+      <div className={`bubble ${isOwn ? 'bubble-out' : 'bubble-in'}${isHighlighted ? ' bubble-highlighted' : ''}`}>
         <span className="bubble-text">{message.content}</span>
         <div className="bubble-meta">
           <span className="bubble-time">{formatMessageTime(message.created_at)}</span>

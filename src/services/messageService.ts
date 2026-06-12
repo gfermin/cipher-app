@@ -1,10 +1,13 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { MessageWithSender, Profile, Message } from '@/types/app'
 
-async function enrichMessage(msg: Message): Promise<MessageWithSender> {
+// RPC return types omit generated columns (content_tsv); accept a compatible superset/subset
+type MessageLike = Omit<Message, 'content_tsv'> & { content_tsv?: unknown }
+
+async function enrichMessage(msg: MessageLike): Promise<MessageWithSender> {
   const sb = getSupabaseClient()
   const { data: sender } = await sb.from('profiles').select('*').eq('id', msg.sender_id).single()
-  return { ...msg, sender: sender as Profile }
+  return { ...(msg as Message), sender: sender as Profile }
 }
 
 // Returns the newest 40 messages for the initial load, ordered oldest-first for display.
@@ -101,6 +104,38 @@ export async function vaultChatMedia(chatId: string): Promise<number> {
   const sb = getSupabaseClient()
   const { data } = await sb.rpc('vault_chat_media', { p_chat_id: chatId })
   return typeof data === 'number' ? data : 0
+}
+
+// Searches non-vaulted text messages in a chat using ILIKE substring matching.
+// Returns up to 50 results ordered newest-first. Query escaping is handled
+// server-side in the RPC — caller does not need to sanitize p_query.
+export async function searchMessages(chatId: string, query: string): Promise<MessageWithSender[]> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb.rpc('search_chat_messages', {
+    p_chat_id: chatId,
+    p_query: query,
+    p_limit: 50,
+  })
+  if (error) throw new Error(error.message)
+  return Promise.all((data ?? []).map(enrichMessage))
+}
+
+// Fetches a window of messages centered on targetTimestamp for jump-to-message
+// navigation. Returns up to 2 × windowSize rows ordered oldest-first, ready
+// to replace chatStore.messages[chatId] as the new scroll anchor window.
+export async function getMessagesAroundTimestamp(
+  chatId: string,
+  targetTimestamp: string,
+  windowSize: number = 30
+): Promise<MessageWithSender[]> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb.rpc('get_messages_around_timestamp', {
+    p_chat_id: chatId,
+    p_timestamp: targetTimestamp,
+    p_window: windowSize,
+  })
+  if (error) throw new Error(error.message)
+  return Promise.all((data ?? []).map(enrichMessage))
 }
 
 export async function setTyping(chatId: string, userId: string): Promise<void> {
