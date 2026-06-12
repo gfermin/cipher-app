@@ -103,6 +103,38 @@ export async function vaultChatMedia(chatId: string): Promise<number> {
   return typeof data === 'number' ? data : 0
 }
 
+// Searches non-vaulted text messages in a chat using ILIKE substring matching.
+// Returns up to 50 results ordered newest-first. Query escaping is handled
+// server-side in the RPC — caller does not need to sanitize p_query.
+export async function searchMessages(chatId: string, query: string): Promise<MessageWithSender[]> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb.rpc('search_chat_messages', {
+    p_chat_id: chatId,
+    p_query: query,
+    p_limit: 50,
+  })
+  if (error) throw new Error(error.message)
+  return Promise.all((data ?? []).map(enrichMessage))
+}
+
+// Fetches a window of messages centered on targetTimestamp for jump-to-message
+// navigation. Returns up to 2 × windowSize rows ordered oldest-first, ready
+// to replace chatStore.messages[chatId] as the new scroll anchor window.
+export async function getMessagesAroundTimestamp(
+  chatId: string,
+  targetTimestamp: string,
+  windowSize: number = 30
+): Promise<MessageWithSender[]> {
+  const sb = getSupabaseClient()
+  const { data, error } = await sb.rpc('get_messages_around_timestamp', {
+    p_chat_id: chatId,
+    p_timestamp: targetTimestamp,
+    p_window: windowSize,
+  })
+  if (error) throw new Error(error.message)
+  return Promise.all((data ?? []).map(enrichMessage))
+}
+
 export async function setTyping(chatId: string, userId: string): Promise<void> {
   const sb = getSupabaseClient()
   await sb.from('typing_indicators').upsert({ chat_id: chatId, user_id: userId, updated_at: new Date().toISOString() })
