@@ -182,6 +182,7 @@ export function MessageInput({ chatId, onTyping, onVaultTrigger, onVaultSetupTri
       image_url: thumbUrl || null,
       image_path: null,
       content: null,
+      content_tsv: null,
       created_at: new Date().toISOString(),
       is_vaulted: false,
       is_deleted: false,

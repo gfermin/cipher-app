@@ -50,3 +50,40 @@ export function extractUsernameFromEmail(email: string): string {
 export function generateId(): string {
   return crypto.randomUUID()
 }
+
+// Returns content sliced to show ≤contextChars characters before and after the first
+// match of query. Prepends/appends "…" when the slice doesn't reach the string boundary.
+export function getSearchExcerpt(content: string, query: string, contextChars = 40): string {
+  const q = query.trim()
+  if (!q) return content.slice(0, 80)
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = new RegExp(escaped, 'i').exec(content)
+  if (!match) return content.slice(0, 80)
+  const start = Math.max(0, match.index - contextChars)
+  const end = Math.min(content.length, match.index + match[0].length + contextChars)
+  let excerpt = content.slice(start, end)
+  if (start > 0) excerpt = '…' + excerpt
+  if (end < content.length) excerpt = excerpt + '…'
+  return excerpt
+}
+
+// Splits text into highlighted and non-highlighted segments for the matched query term.
+export function highlightMatch(
+  text: string,
+  query: string
+): Array<{ text: string; highlight: boolean }> {
+  const q = query.trim()
+  if (!q) return [{ text, highlight: false }]
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(escaped, 'gi')
+  const parts: Array<{ text: string; highlight: boolean }> = []
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) parts.push({ text: text.slice(last, m.index), highlight: false })
+    parts.push({ text: m[0], highlight: true })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), highlight: false })
+  return parts.length > 0 ? parts : [{ text, highlight: false }]
+}

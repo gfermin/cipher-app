@@ -29,7 +29,7 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   const { user, isLoading } = useAuth()
   const { theme } = useTheme()
   const { chats, activeChatId, setActiveChat, activeHiddenChat, setActiveHiddenChat } = useChatStore()
-  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats, chatLockInitialized, setChatLockInitialized } = useUIStore()
+  const { isMobileChatOpen, setMobileChatOpen, chatLockEnabled, setChatLockEnabled, lockAllChats, lockedChats, chatLockInitialized, setChatLockInitialized, closeSearch } = useUIStore()
   const { pendingRequests } = useContactStore()
 
   const initialTab: Tab = showSettings ? 'settings' : showContacts ? 'contacts' : 'chats'
@@ -78,15 +78,23 @@ export function AppLayout({ initialChatId, showSettings, showContacts }: Props) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, chats.length > 0, chatLockInitialized])
 
+  // Close search whenever the active chat changes (switching chats clears search state).
+  useEffect(() => {
+    closeSearch()
+  }, [activeChatId, closeSearch])
+
   useEffect(() => {
     function handleVisibility() {
-      if (document.visibilityState === 'hidden' && chatLockEnabled) {
-        lockAllChats(chats.map((c) => c.id))
+      if (document.visibilityState === 'hidden') {
+        closeSearch()
+        if (chatLockEnabled) {
+          lockAllChats(chats.map((c) => c.id))
+        }
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [chatLockEnabled, lockAllChats, chats])
+  }, [chatLockEnabled, lockAllChats, chats, closeSearch])
 
   if (isLoading || !user) {
     return (

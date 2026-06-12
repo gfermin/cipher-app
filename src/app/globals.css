@@ -499,7 +499,8 @@ a { text-decoration: none; color: inherit; }
    KEYFRAMES
    ================================================================ */
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
 @keyframes messageIn { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -945,10 +946,10 @@ a { text-decoration: none; color: inherit; }
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
   min-height: 64px;
   background: var(--bg-surface);
   cursor: pointer;
+  position: relative;
   transition: background var(--ease-fast);
 }
 
@@ -982,6 +983,101 @@ a { text-decoration: none; color: inherit; }
 }
 
 .header-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+
+/* ================================================================
+   CHAT HEADER — SEARCH MODE MORPH
+   ================================================================ */
+
+.chat-header-normal {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  transition: opacity var(--ease-spring), transform var(--ease-spring);
+}
+
+.chat-header-search-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-4);
+  gap: var(--sp-2);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity var(--ease-spring), transform var(--ease-spring);
+}
+
+.chat-header.search-open { cursor: default; }
+.chat-header.search-open:hover { background: var(--bg-surface); }
+
+.chat-header.search-open .chat-header-normal {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+.chat-header.search-open .chat-header-search-wrap {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ================================================================
+   CHAT HEADER SEARCH BAR
+   (Scoped to .header-search-* to avoid colliding with sidebar .search-bar)
+   ================================================================ */
+
+.header-search-bar {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.header-search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--sp-8) 0 var(--sp-3);
+  background: var(--bg-input);
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  transition: background var(--ease-fast), border-color var(--ease-fast);
+}
+
+.header-search-input:focus {
+  background: var(--bg-input-focus);
+  border-color: var(--border-accent);
+}
+
+.header-search-input::placeholder { color: var(--text-3); }
+
+.header-search-input::-webkit-search-decoration,
+.header-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none;
+}
+
+.header-search-clear-btn {
+  position: absolute;
+  right: var(--sp-2);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  color: var(--text-3);
+  transition: background var(--ease-fast), color var(--ease-fast);
+}
+
+.header-search-clear-btn:hover { background: var(--bg-hover); color: var(--text-1); }
 
 /* ================================================================
    MESSAGES
@@ -2802,4 +2898,295 @@ a { text-decoration: none; color: inherit; }
 .vault-set-btn:disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* ================================================================
+   PHASE 4 — SEARCH RESULTS
+   ================================================================ */
+
+/* Wrapper that sits between ChatHeader and MessageInput.
+   Carries both the scrollable messages-area and the search overlay. */
+.chat-messages-region {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hide MessageInput on mobile while search is open */
+@media (max-width: 768px) {
+  .chat-body.search-active .input-area {
+    display: none;
+  }
+}
+
+/* ================================================================
+   CHAT SEARCH OVERLAY
+   ================================================================ */
+
+/* Right-side panel on desktop; full-width takeover on mobile */
+.chat-search-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 42%;
+  min-width: 300px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+  animation: fadeIn 180ms var(--ease-out) forwards;
+}
+
+@media (max-width: 768px) {
+  .chat-search-overlay {
+    width: 100%;
+    border-left: none;
+  }
+}
+
+.chat-search-overlay.search-closing,
+.chat-search-dim.search-closing {
+  animation: fadeOut var(--ease-fast) forwards;
+  pointer-events: none;
+}
+
+/* Translucent dim that covers the visible message area to the left of the panel */
+.chat-search-dim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 42%;
+  background: rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  z-index: 4;
+}
+
+@media (max-width: 768px) {
+  .chat-search-dim { display: none; }
+}
+
+/* ================================================================
+   SEARCH RESULT LIST
+   ================================================================ */
+
+.search-result-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 168px; /* 3 × skeleton card height — prevents collapse during state transitions */
+}
+
+.search-result-count {
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-result-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-8);
+  gap: var(--sp-4);
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+.search-retry-btn {
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: background var(--ease-fast), color var(--ease-fast);
+}
+
+.search-retry-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ================================================================
+   SEARCH RESULT CARD
+   ================================================================ */
+
+.search-result-card {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  min-height: 56px;
+  text-align: left;
+  transition: background var(--ease-fast);
+  border-bottom: 1px solid var(--border);
+}
+
+.search-result-card:hover,
+.search-result-card:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.search-result-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: 2px;
+}
+
+.search-result-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-time {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.search-result-snippet {
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* Matched term highlight — no background, just accent colour + bold */
+.search-result-mark {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ================================================================
+   SEARCH SKELETON CARDS (loading state)
+   ================================================================ */
+
+.search-skeleton-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  min-height: 56px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-surface-2);
+  flex-shrink: 0;
+  animation: shimmer 1.4s ease infinite;
+}
+
+.search-skeleton-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.search-skeleton-line {
+  height: 10px;
+  border-radius: var(--r-full);
+  background: var(--bg-surface-2);
+  animation: shimmer 1.4s ease infinite;
+}
+
+.search-skeleton-name { width: 38%; }
+
+.search-skeleton-text {
+  width: 72%;
+  animation-delay: 0.18s;
+}
+
+/* ================================================================
+   PHASE 5 — JUMP TO MESSAGE
+   ================================================================ */
+
+/* Flash highlight on the jumped-to bubble: accent-muted → transparent over 1.5s */
+@keyframes bubbleHighlight {
+  0%   { background-color: var(--accent-muted); }
+  100% { background-color: transparent; }
+}
+
+.bubble-highlighted {
+  animation: bubbleHighlight 1.5s var(--ease-out) forwards;
+}
+
+/* "Go to Latest" floating button — absolute inside .chat-messages-region */
+@keyframes goToLatestIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.go-to-latest-btn {
+  position: absolute;
+  bottom: var(--sp-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  animation: goToLatestIn 220ms var(--ease-out) forwards;
+  transition: opacity var(--ease-fast), transform var(--ease-fast);
+}
+
+.go-to-latest-btn:hover {
+  opacity: 0.9;
+  transform: translateX(-50%) translateY(-1px);
+}
+
+/* Jumping card state — show spinner placeholder where avatar was */
+.search-result-card--jumping {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.search-result-jump-spinner {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
 }

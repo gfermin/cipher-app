@@ -96,12 +96,6 @@ export type Database = {
         }
         Relationships: []
       }
-      chat_vaults: {
-        Row: { chat_id: string; created_at: string; id: string; password_hash: string; updated_at: string }
-        Insert: { chat_id: string; created_at?: string; id?: string; password_hash: string; updated_at?: string }
-        Update: { chat_id?: string; created_at?: string; id?: string; password_hash?: string; updated_at?: string }
-        Relationships: []
-      }
       chats: {
         Row: {
           background_url: string | null
@@ -235,6 +229,7 @@ export type Database = {
           read_by: string[]
           sender_id: string
           type: 'text' | 'image' | 'video' | 'deleted'
+          content_tsv: unknown
         }
         Insert: {
           chat_id: string
@@ -372,16 +367,17 @@ export type Database = {
         Returns: { user_id: string }[]
       }
       has_user_vault_code: { Args: { p_chat_id: string }; Returns: boolean }
-      is_chat_participant: { Args: { p_chat_id: string }; Returns: boolean }
+      get_my_chat_ids: { Args: Record<PropertyKey, never>; Returns: string[] }
       log_lookup_attempt: { Args: { p_user_id: string }; Returns: undefined }
       lookup_contact_code: { Args: { p_code: string }; Returns: string }
       // Returns void; updates read_by on messages the caller did not send
       mark_messages_read: { Args: { p_chat_id: string }; Returns: undefined }
       mint_contact_code: { Args: { p_user_id: string }; Returns: string }
+      prune_lookup_rate_log: { Args: Record<PropertyKey, never>; Returns: number }
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined }
       revoke_vault_token: { Args: { p_chat_id: string }; Returns: undefined }
+      rotate_expired_codes: { Args: Record<PropertyKey, never>; Returns: number }
       set_user_vault_code: { Args: { p_chat_id: string; p_code: string }; Returns: undefined }
-      set_vault_password: { Args: { p_chat_id: string; p_password: string }; Returns: undefined }
       store_code_encrypted: { Args: { p_encrypted: string; p_user_id: string }; Returns: undefined }
       unblock_user: { Args: { p_blocked_id: string }; Returns: undefined }
       vault_chat_media: { Args: { p_chat_id: string }; Returns: number }
@@ -389,7 +385,24 @@ export type Database = {
       // Returns TEXT: UUID token string (success), '' (wrong code), NULL (no code set)
       // Raises P0001 'vault_rate_limited' after 5 attempts / 60 s
       verify_user_vault_code: { Args: { p_chat_id: string; p_code: string }; Returns: string }
-      verify_vault_password: { Args: { p_chat_id: string; p_password: string }; Returns: boolean }
+      search_chat_messages: {
+        Args: { p_chat_id: string; p_query: string; p_limit?: number }
+        Returns: {
+          id: string; chat_id: string; sender_id: string
+          type: 'text' | 'image' | 'video' | 'deleted'; content: string | null
+          image_url: string | null; image_path: string | null
+          is_vaulted: boolean; is_deleted: boolean; read_by: string[]; created_at: string
+        }[]
+      }
+      get_messages_around_timestamp: {
+        Args: { p_chat_id: string; p_timestamp: string; p_window?: number }
+        Returns: {
+          id: string; chat_id: string; sender_id: string
+          type: 'text' | 'image' | 'video' | 'deleted'; content: string | null
+          image_url: string | null; image_path: string | null
+          is_vaulted: boolean; is_deleted: boolean; read_by: string[]; created_at: string
+        }[]
+      }
     }
     Enums: {
       chat_request_status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
@@ -427,6 +440,56 @@ export type Tables<
         Row: infer R
       }
       ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
       : never
     : never
 
